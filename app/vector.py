@@ -1,5 +1,5 @@
 from math import acos
-from typing import Union
+import random
 
 class Vector:
     def __init__(self, *components):
@@ -126,6 +126,36 @@ class Vector:
         
         return NotImplemented
     
+    def __neg__(self) -> 'Vector':
+        vector = Vector()
+        for i in range(3):
+            vector[i] = -self[i]
+
+        return vector
+    
+    def __truediv__(self, scalar: int | float) -> 'Vector':
+        if scalar != 0:
+            vector = Vector()
+            vector.x = self.x / scalar
+            vector.y = self.y / scalar
+            vector.z = self.z / scalar
+            return vector
+        
+        raise ZeroDivisionError
+    
+    def __eq__(self, other: 'Vector') -> bool:
+        for i in range(len(self._components)):
+            if self[i] != other[i]:
+                return False
+            
+        return True
+    
+    def __ne__(self, other: 'Vector') -> bool:
+        return not self.__eq__(other)
+    
+    def __iter__(self):
+        return iter(self._components[0:2])
+    
     def dot(self, other: 'Vector') -> int | float:
         dot = 0
         for i in range(3):
@@ -182,5 +212,9 @@ class Vector:
             vector[i] = self[i]
         
         return vector
+    
+def random_vector() -> Vector:
+    vector = Vector(random.uniform(-1, 1), random.uniform(-1, 1), random.uniform(-1, 1))
+    return vector
     
     

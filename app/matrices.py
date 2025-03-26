@@ -1,7 +1,7 @@
-from math import cos, sin
+from math import cos, sin, tan
 from typing import Union
 
-from vector import Vector
+from vector import Vector, random_vector
 
 class Matrix:
     def __init__(self, *components: list[int | float] | int):
@@ -15,7 +15,7 @@ class Matrix:
         elif isinstance(components[0], int):
             rows, cols = components
             components = []
-            for i in range(rows):
+            for _ in range(rows):
                 row = [0,] * cols
                 components.append(row)
             components = tuple(components)
@@ -85,8 +85,8 @@ class Matrix:
             rows = self.rows
             columns = self.columns
             matrix = Matrix(rows, columns)
-            for i in range():
-                for j in range():
+            for i in range(self.rows):
+                for j in range(self.columns):
                     matrix[i, j] = self[i, j] * scalar
 
             return matrix
@@ -103,14 +103,16 @@ class Matrix:
         return vector_list
 
     def transpose(self) -> 'Matrix':
-        matrix = Matrix()
+        matrix = Matrix(self.columns, self.rows)
         for i in range(self.rows):
             for j in range(self.columns):
                 matrix[j,i] = self[i,j]
         return matrix
     
     def copy(self) -> 'Matrix':
-        matrix = Matrix()
+        rows = self.rows
+        columns = self.columns
+        matrix = Matrix(rows, columns)
         for i in range(self.rows):
             for j in range(self.columns):
                 matrix[i, j] = self[i, j]
@@ -176,3 +178,49 @@ def default_orientation() -> 'Matrix':
         [1,1,1]
     )
     return matrix
+
+def view_matrix(cam_pos, cam_orientation) -> 'Matrix':
+    orientation_vectors = cam_orientation.column_vectors()
+    orientation_vectors.append(Vector())
+    orientation = vector_matrix(orientation_vectors)
+    orientation[3,0], orientation[3,1], orientation[3,2] = 0, 0, 0
+
+    translation_mtx = translation_matrix(-cam_pos)
+    rotation_mtx = orientation.transpose()
+    return rotation_mtx * translation_mtx
+
+def perspective_matrix(fov: int | float, aspect_ratio: int | float, min_draw: int | float, max_draw: int | float) -> 'Matrix':
+    f = 1 / tan(fov / 2)
+    ar = aspect_ratio
+    nd = min_draw
+    fd = max_draw
+    z_factor = fd / (fd - nd)
+    perspective_mtx = Matrix(
+        [f / ar, 0, 0, 0],
+        [0, f, 0, 0],
+        [0, 0, z_factor, -nd * z_factor],
+        [0, 0, 1, 0]
+    )
+    return perspective_mtx
+
+def screen_matrix(width: int, height: int) -> 'Matrix':
+    matrix = Matrix(
+        [-width/2, 0, 0, width/2],
+        [0, -height/2, 0, height/2],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+    )
+    return matrix
+
+def random_orientation() -> 'Matrix':
+    random_vec1=random_vector().normalized
+    random_vec2=random_vector().normalized
+
+    oriz = random_vec1
+    if random_vec1.angle(random_vec2) == 0 or random_vec1.angle(random_vec2) == 180:
+        random_vec2 = random_vector()
+    orix = random_vec1.cross(random_vec2).normalized
+    oriy = oriz.cross(orix).normalized
+    orientation = vector_matrix([orix, oriy, oriz])
+
+    return orientation
