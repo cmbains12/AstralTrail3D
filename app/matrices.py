@@ -38,44 +38,28 @@ class Matrix:
         return columns
 
     def __getitem__(self, key: int | tuple[int,int]) -> int | float:
-        if isinstance(key, (int, float)):
-            row = self._components[row]
-
-        if isinstance(key, tuple):
-            row, col = key
-            value = self._components[row][col]
-            return value
+        return self._components[key[0]][key[1]]
         
     def __setitem__(self, key: int | tuple[int,int], value: int | float):
-        if isinstance(key, int):
-            self._components[key] = value
-
-        if isinstance(key, tuple):
-            row, col = key
-            self._components[row][col] = value
+        self._components[key[0]][key[1]] = value
 
     def __mul__(self, other: Union[Vector,'Matrix']) -> Union[Vector,'Matrix']:
         if isinstance(other, Matrix):
-            rows = other.rows
-            columns = other.columns
-            matrix = Matrix(rows, columns)
-            for i in range(self.rows):
-                for j in range(other.columns):
-                    sum = 0
-                    for k in range(self.columns):
-                        sum = sum + self[i, k] * other[k, j]
-                    matrix[i, j] = sum
+            srows, scols, ocols = self.rows, self.columns, other.columns
+            matrix = Matrix(srows, ocols)
+            for i in range(srows):
+                row = self._components[i]
+                for j in range(ocols):
+                    col = [other._components[k][j] for k in range(scols)]
+                    matrix[i, j] = sum(row[k] * col[k] for k in range(scols))
 
             return matrix
         
         if isinstance(other, Vector):
+            cols = self.columns
             vector = Vector()
             for i in range(len(other)):
-                sum = 0
-                for j in range(self.columns):
-                    sum = sum + self[i, j] * other[j]
-                vector[i] = sum
-
+                vector[i] = sum(self[i, j] * other[j] for j in range(cols))
             return vector
         
         return NotImplemented

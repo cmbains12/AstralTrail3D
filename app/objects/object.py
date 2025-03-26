@@ -111,6 +111,7 @@ class Object:
         blueprints = self._FRAGMENTS_BLUEPRINT.copy()
         for fragment_blueprint in blueprints:
             p1_index, p2_index, p3_index, colour = fragment_blueprint
+            colour = self.colour
             vertices = self.vertices.column_vectors()
             p1 = vertices[p1_index]
             p2 = vertices[p2_index]

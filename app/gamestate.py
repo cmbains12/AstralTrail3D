@@ -42,7 +42,7 @@ class Gamestate:
         for i in range(0, 10):
             for j in range(0, 10):
                 orientation = random_orientation()
-                test_cube = Cube(position=Vector(2+2*i, 0, 2+2*j), orientation=orientation)
+                test_cube = Cube(position=Vector(2+2*i, 0, 2+2*j), orientation=orientation, colour=RED)
                 self.objects.append(test_cube)
 
         orientation0 = default_orientation()
