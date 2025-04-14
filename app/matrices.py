@@ -1,210 +1,131 @@
-from math import cos, sin, tan
-from typing import Union
+import numpy
 
-from vector import Vector, random_vector
+from vector import Vector
 
 class Matrix:
-    def __init__(self, *components: list[int | float] | int):
-        if components == ():
-            components = (
-                [1,0,0,0],
-                [0,1,0,0],
-                [0,0,1,0],
-                [0,0,0,1]
-            )
-        elif isinstance(components[0], int):
-            rows, cols = components
-            components = []
-            for _ in range(rows):
-                row = [0,] * cols
-                components.append(row)
-            components = tuple(components)
+    def __init__(
+            self,
+            *args: numpy.ndarray | int | list[list[int | float]]
+    ):
+        if not args:
+            self._components = numpy.eye(4, dtype=float)
+            return
 
-        self._components = list(components)
-        
+        if len(args) == 2:
+            if not isinstance(args[0], int) or not isinstance(args[1], int):
+                raise TypeError("Matrix dimensions must be integers")
+            self._components = numpy.zeros((args[0], args[1]), dtype=float)
+            return
+
+        cols = len(args[0])
+
+        if isinstance(args[0], numpy.ndarray):
+            if args[0].ndim != 2:
+                raise ValueError("Matrix must be 2-dimensional")
+            if args[0].shape[0] == 0 or args[0].shape[1] == 0:
+                raise ValueError("Matrix cannot be empty")
+            self._components = args[0]
+            return
+
+        for row in args:
+            if not isinstance(row, list):
+                raise TypeError("Matrix rows must be lists")
+            if len(row) != cols:
+                raise ValueError("All rows must have the same number of columns")
+            for element in row:
+                if not isinstance(element, (int, float)):
+                    raise TypeError("Matrix elements must be numbers")
+                
+        self._components = numpy.array(args, dtype=float)
+
     @property
-    def components(self) -> list[list[int | float]]:
-        components = self._components.copy()
-        return components
+    def components(self):
+        return self._components
+
+    @property
+    def shape(self):
+        return self._components.shape
     
     @property
-    def rows(self) -> int:
-        rows = len(self._components)
-        return rows
+    def T(self):
+        return Matrix(self._components.T)
     
     @property
-    def columns(self) -> int:
-        columns = len(self._components[0])
-        return columns
+    def rows(self):
+        return self._components.shape[0]
+    
+    @property
+    def cols(self):
+        return self._components.shape[1]
 
-    def __getitem__(self, key: int | tuple[int,int]) -> int | float:
-        return self._components[key[0]][key[1]]
-        
-    def __setitem__(self, key: int | tuple[int,int], value: int | float):
-        self._components[key[0]][key[1]] = value
+    def __getitem__(self, key):
+        return self._components[key]
 
-    def __mul__(self, other: Union[Vector,'Matrix']) -> Union[Vector,'Matrix']:
-        if isinstance(other, Matrix):
-            srows, scols, ocols = self.rows, self.columns, other.columns
-            matrix = Matrix(srows, ocols)
-            for i in range(srows):
-                row = self._components[i]
-                for j in range(ocols):
-                    col = [other._components[k][j] for k in range(scols)]
-                    matrix[i, j] = sum(row[k] * col[k] for k in range(scols))
+    def __setitem__(self, key, value):
+        if not isinstance(value, (int, float)):
+            raise TypeError("Matrix elements must be numbers")
+        self._components[key] = value
 
-            return matrix
+    def __mul__(self, other):
+        result = numpy.dot(self._components, other._components)
         
-        if isinstance(other, Vector):
-            cols = self.columns
-            vector = Vector()
-            for i in range(len(other)):
-                vector[i] = sum(self[i, j] * other[j] for j in range(cols))
-            return vector
-        
+        return Matrix(result)
+
+    def __rmul__(self, other):
+        if not isinstance(other, int | float):
+            return NotImplemented
+        return Matrix(numpy.dot(other._components, self._components))     
+    
+    def __add__(self, other):
         return NotImplemented
     
-    def __rmul__(self, scalar: int | float) -> 'Matrix':
-        if isinstance(scalar, (int, float)):
-            rows = self.rows
-            columns = self.columns
-            matrix = Matrix(rows, columns)
-            for i in range(self.rows):
-                for j in range(self.columns):
-                    matrix[i, j] = self[i, j] * scalar
-
-            return matrix
-        
+    def __sub__(self, other):
         return NotImplemented
-
-    def column_vectors(self) -> list[Vector]:
-        vector_list = []
-        for i in range(self.columns):
-            vector = Vector()
-            for j in range(self.rows):
-                vector[j] = self[j, i]
-            vector_list.append(vector)
-        return vector_list
-
-    def transpose(self) -> 'Matrix':
-        matrix = Matrix(self.columns, self.rows)
-        for i in range(self.rows):
-            for j in range(self.columns):
-                matrix[j,i] = self[i,j]
-        return matrix
     
-    def copy(self) -> 'Matrix':
-        rows = self.rows
-        columns = self.columns
-        matrix = Matrix(rows, columns)
-        for i in range(self.rows):
-            for j in range(self.columns):
-                matrix[i, j] = self[i, j]
+    def __truediv__(self, other):
+        if not isinstance(other, int | float):
+            return NotImplemented
+        if other == 0:
+            raise ZeroDivisionError("division by zero")
+        return self.__mul__(other**-1)
+    
+    def __neg__(self):
+        return Matrix(-self._components)
+    
+    def __str__(self):
+        return str(self._components)
+    
+    def __repr__(self):
+        return f"Matrix({self._components})"
+    
+    def __eq__(self, other):
+        if not isinstance(other, Matrix):
+            raise TypeError("Comparison is only supported between Matrix instances")
+        return numpy.array_equal(self._components, other._components)
+    
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    
+    def __hash__(self):
+        return hash(self._components.tobytes())
+    
+    def __bool__(self):
+        return numpy.any(self._components)
+    
+    def column_vectors(self):
+        return [Vector(self._components[:, i]) for i in range(self._components.shape[1])]
 
-        return matrix
+def default_orientation():
+    array_list = numpy.array([
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 1, 1]
+    ], dtype=float)
 
-def identity_matrix() -> 'Matrix':
-    return Matrix(
-        [1,0,0,0],
-        [0,1,0,0],
-        [0,0,1,0],
-        [0,0,0,1]
-    )
+    return Matrix(array_list)
 
-def vector_matrix(vector_list: list[Vector]) -> 'Matrix':
-    columns = len(vector_list)
-    rows = len(vector_list[0])
-    matrix = Matrix(rows, columns)
-    for i in range(len(vector_list)):
-        for j in range(len(vector_list[0])):
-            matrix[j,i] = vector_list[i][j]
-    return matrix
+def vector_matrix(vectors: list[Vector]):
+    array_list = numpy.array([vector._components for vector in vectors])
 
-def scaling_matrix(scaling_vector: Vector) -> 'Matrix':
-    sx = scaling_vector.x
-    sy = scaling_vector.y
-    sz = scaling_vector.z
-    sw = scaling_vector.w
-    matrix = Matrix()
-    matrix[0,0] = sx
-    matrix[1,1] = sy
-    matrix[2,2] = sz
-    matrix[3,3] = sw
-    return matrix
-
-def rotation_matrix(axis, angle: int | float) -> 'Matrix':
-    axis = axis.normalized
-    c = cos(angle)
-    s = sin(angle)
-    t = (1 - c)
-    x = axis.x
-    y = axis.y
-    z = axis.z
-    matrix = Matrix(
-        [x*x*t + c, x*y*t - z*s, x*z*t + y*s, 0],
-        [y*x*t + z*s, y*y*t + c, y*z*t - x*s, 0],
-        [z*x*t - y*s, z*y*t + x*s, z*z*t + c, 0],
-        [0,0,0,1]
-    )
-    return matrix
-
-def translation_matrix(translation_vector) -> 'Matrix':
-    matrix = Matrix()
-    for i in range(len(translation_vector)):
-        matrix[i, 3] = translation_vector[i]
-    return matrix
-
-def default_orientation() -> 'Matrix':
-    matrix = Matrix(
-        [1,0,0],
-        [0,1,0],
-        [0,0,1],
-        [1,1,1]
-    )
-    return matrix
-
-def view_matrix(cam_pos, cam_orientation) -> 'Matrix':
-    orientation_vectors = cam_orientation.column_vectors()
-    orientation_vectors.append(Vector())
-    orientation = vector_matrix(orientation_vectors)
-    orientation[3,0], orientation[3,1], orientation[3,2] = 0, 0, 0
-
-    translation_mtx = translation_matrix(-cam_pos)
-    rotation_mtx = orientation.transpose()
-    return rotation_mtx * translation_mtx
-
-def perspective_matrix(fov: int | float, aspect_ratio: int | float, min_draw: int | float, max_draw: int | float) -> 'Matrix':
-    f = 1 / tan(fov / 2)
-    ar = aspect_ratio
-    nd = min_draw
-    fd = max_draw
-    z_factor = fd / (fd - nd)
-    perspective_mtx = Matrix(
-        [f / ar, 0, 0, 0],
-        [0, f, 0, 0],
-        [0, 0, z_factor, -nd * z_factor],
-        [0, 0, 1, 0]
-    )
-    return perspective_mtx
-
-def screen_matrix(width: int, height: int) -> 'Matrix':
-    matrix = Matrix(
-        [-width/2, 0, 0, width/2],
-        [0, -height/2, 0, height/2],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-    )
-    return matrix
-
-def random_orientation() -> 'Matrix':
-    random_vec1=random_vector().normalized
-    random_vec2=random_vector().normalized
-
-    oriz = random_vec1
-    if random_vec1.angle(random_vec2) == 0 or random_vec1.angle(random_vec2) == 180:
-        random_vec2 = random_vector()
-    orix = random_vec1.cross(random_vec2).normalized
-    oriy = oriz.cross(orix).normalized
-    orientation = vector_matrix([orix, oriy, oriz])
-
-    return orientation
+    return Matrix(array_list)
