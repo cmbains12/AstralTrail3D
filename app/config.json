@@ -1,6 +1,8 @@
 {
-    "window_width": 800,
-    "window_height": 600,
-    "fps": 60,
-    "debug": true
+    "window": {
+        "width": 10,
+        "height": 10,
+        "title": "astral",
+        "fps": 10
+    }
 }

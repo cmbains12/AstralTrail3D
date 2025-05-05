@@ -1,251 +1,154 @@
-import json
 import pyglet
+import numpy as np
 
-import time
+from constants import *
+from renderer import Renderer
+from camera import Camera
+from cube import Cube
 
-from constants import DEFAULT_CONFIG, CONFIG_PATH, WINDOW_TITLE
-from states.menus import MainMenuState, SettingsState, PauseState
-from states.playstate import PlayState
-from rendering import Renderer
+class AstralApp:
+    def __init__(self):
+        config = pyglet.gl.Config(
+            double_buffer=True, 
+            sample_buffers=1, 
+            samples=4,
+            depth_size=24,
+        )
 
-vertex_attributes = {
-    'position': {'format': 'f', 'count': 3, 'location': 0, 'instance': False},
-    'colour': {'format': 'f', 'count': 4, 'location': 1, 'instance': False},
-}
+        self.window = pyglet.window.Window(
+            CONFIG_DEFAULTS['window']['width'], 
+            CONFIG_DEFAULTS['window']['height'], 
+            "Astral App", 
+            config=config
+        )
+        self.window.set_exclusive_mouse(True)
 
-point_vertex_domain = pyglet.graphics.vertexdomain.VertexDomain(vertex_attributes)
-line_vertex_domain = pyglet.graphics.vertexdomain.VertexDomain(vertex_attributes)
-fragment_vertex_domain = pyglet.graphics.vertexdomain.VertexDomain(vertex_attributes)
+        self.renderer = Renderer(self.window)
+        self.clock = pyglet.clock.get_default()
+        self.clock.schedule_interval(
+            self.update, 
+            1.0 / CONFIG_DEFAULTS['window']['fps']
+        )
 
-domains = {
-    "points": point_vertex_domain,
-    "lines": line_vertex_domain,
-    "fragments": fragment_vertex_domain,
-}
+        cam_pos = CONFIG_DEFAULTS['camera']['position']
+        self.camera = Camera(
+            position=cam_pos, 
+            aspect=self.window.width / self.window.height,
+            orientation_z=cam_pos/np.linalg.norm(cam_pos),
+            fov=CONFIG_DEFAULTS['camera']['fov'],
+            near_plane=CONFIG_DEFAULTS['camera']['near_plane'],
+            far_plane=CONFIG_DEFAULTS['camera']['far_plane']
+        )
 
-def load_config(file_path=CONFIG_PATH):
-    try:
-        with open(file_path, 'r') as file:
-            config = json.load(file)
-            return config
-    except FileNotFoundError:
-        print("Configuration file not found. Using default settings.")
-        return DEFAULT_CONFIG
-    except json.JSONDecodeError:
-        print(f"Error decoding {file_path}. Using default settings.")
-        return DEFAULT_CONFIG
-    
-def save_config(config, file_path=CONFIG_PATH):
-    try:
-        with open(file_path, 'w') as file:
-            json.dump(config, file, indent=4)
-    except IOError as e:
-        print(f"Error saving configuration: {e}")
+        self.objects = {
+            'cube1': Cube('cube1'),
+            'cube2': Cube('cube2', position=np.array([1.5, 0.0, 0.0], dtype=np.float32)),
+            'cube3': Cube('cube3', position=np.array([0.0, 1.5, 0.0], dtype=np.float32)),
+            'cube4': Cube('cube4', position=np.array([0.0, 0.0, 1.5], dtype=np.float32)),
+        }
 
-def initiate_app():
-    global user_input
-    user_input = {
-        "mouse_buttons": [],
-        "modifiers": [],
-        "mouse_position": [0.0, 0.0],
-        "mouse_delta": [0.0, 0.0],
-        "keys": [],
-    }
+        self.renderer.objects = self.objects
 
-    global frame_count, fps, start_time
-    frame_count = 0
-    fps = 0.0
-    start_time = time.time()
+        self.keys = KEYS_INITIAL_STATE.copy()
 
-    global config
-    config = load_config()
-    win_width = config["window_width"]
-    win_height = config["window_height"]
+        @self.window.event
+        def on_key_press(symbol, modifiers):
+            if symbol == pyglet.window.key.W:
+                self.keys['key_w'] = True
+            elif symbol == pyglet.window.key.A:
+                self.keys['key_a'] = True
+            elif symbol == pyglet.window.key.S:
+                self.keys['key_s'] = True
+            elif symbol == pyglet.window.key.D:
+                self.keys['key_d'] = True
+            elif symbol == pyglet.window.key.ESCAPE:
+                self.keys['key_esc'] = True
+            elif symbol == pyglet.window.key.SPACE:
+                self.keys['key_space'] = True
+            elif symbol == pyglet.window.key.LSHIFT:
+                self.keys['key_lshift'] = True
+            elif symbol == pyglet.window.key.Q:
+                self.keys['key_q'] = True
+            elif symbol == pyglet.window.key.E:
+                self.keys['key_e'] = True
 
-    global mouse_position
-    mouse_position = [0.0, 0.0]
+        @self.window.event
+        def on_key_release(symbol, modifiers):
+            if symbol == pyglet.window.key.W:
+                self.keys['key_w'] = False
+            elif symbol == pyglet.window.key.A:
+                self.keys['key_a'] = False
+            elif symbol == pyglet.window.key.S:
+                self.keys['key_s'] = False
+            elif symbol == pyglet.window.key.D:
+                self.keys['key_d'] = False
+            elif symbol == pyglet.window.key.ESCAPE:
+                self.keys['key_esc'] = False
+            elif symbol == pyglet.window.key.SPACE:
+                self.keys['key_space'] = False
+            elif symbol == pyglet.window.key.LSHIFT:
+                self.keys['key_lshift'] = False
+            elif symbol == pyglet.window.key.Q:
+                self.keys['key_q'] = False
+            elif symbol == pyglet.window.key.E:
+                self.keys['key_e'] = False
 
-    global mouse_delta
-    mouse_delta = [0.0, 0.0]
+        @self.window.event
+        def on_mouse_motion(x, y, dx, dy):
+            self.camera.look_around(dx, dy)
 
-    global window
-    window = pyglet.window.Window(
-        width=win_width,
-        height=win_height,
-        caption=WINDOW_TITLE
-    )
-
-    global renderer
-    renderer = Renderer()
-
-    game_funcs = {
-        "change_state": change_state,
-        "exit_game": exit_game,
-        "shader_program": renderer.shader_program
-    }
-
-    draw_batches = {
-        "points": pyglet.graphics.Batch(),
-        "lines": pyglet.graphics.Batch(),
-        "fragments": pyglet.graphics.Batch()
-    }
-
-    global game_states
-    game_states = {
-        "play": PlayState(window, game_funcs, domains, draw_batches),
-        "main_menu": MainMenuState(window, game_funcs, domains, draw_batches),
-        "settings": SettingsState(window, game_funcs, domains, draw_batches),
-        "pause": PauseState(window, game_funcs, domains, draw_batches)
-    }
-
-    fov = game_states["play"].static_camera.fov
-    znear = game_states["play"].static_camera.znear
-    far = game_states["play"].static_camera.zfar
-
-    renderer.set_projection_matrix(win_width, win_height, fov, znear, far)
-
-    @window.event
-    def on_mouse_motion(x, y, dx, dy):
-        user_input["mouse_position"] = [x, y]
-        user_input["mouse_delta"] = [dx, dy]
-
-    @window.event
-    def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
-        if buttons not in user_input["mouse_buttons"]:
-            user_input["mouse_buttons"].append(buttons)
-        user_input["mouse_position"] = [x, y]
-        user_input["mouse_delta"] = [dx, dy]
-
-    @window.event
-    def on_mouse_press(x, y, button, modifiers):
-        if button not in user_input["mouse_buttons"]:
-            user_input["mouse_buttons"].append(button)
-        if modifiers not in user_input["modifiers"]:
-            user_input["modifiers"].append(modifiers)
-
-        user_input["mouse_position"] = [x, y]
-
-    @window.event
-    def on_mouse_release(x, y, button, modifiers):
-        if button in user_input["mouse_buttons"]:
-            user_input["mouse_buttons"].remove(button)
-        user_input["mouse_position"] = [x, y]
-
-    @window.event
-    def on_key_press(symbol, modifiers):
-        if symbol not in user_input["keys"]:
-            user_input["keys"].append(symbol)
-        if modifiers not in user_input["modifiers"]:
-            user_input["modifiers"].append(modifiers)
-        if symbol == pyglet.window.key.ESCAPE:
+        @self.window.event
+        def on_close():
+            self.clock.unschedule(self.update)
+            pyglet.app.exit()
             return pyglet.event.EVENT_HANDLED
+        
+        @self.window.event
+        def on_draw():
+            self.renderer.on_draw(self.objects)
 
-    @window.event
-    def on_key_release(symbol, _):
-        if symbol in user_input["keys"]:
-            user_input["keys"].remove(symbol)
-        if symbol in user_input["modifiers"]:
-            user_input["modifiers"].remove(symbol)
+    def update(self, dt):
+        delta_time = dt
 
-    @window.event
-    def on_draw():
-        window.clear()
-        draw_batches["points"].draw()
-        draw_batches["lines"].draw()
-        draw_batches["fragments"].draw()
+        if any([
+            'key_w', 
+            'key_a', 
+            'key_s', 
+            'key_d',
+            'key_q',
+            'key_e',
+            'key_space',
+            'key_lshift',
+        ]) is True in self.keys.values():
+            
+            if self.keys['key_w']:
+                self.camera.move_forward(dt)
+            if self.keys['key_a']:
+                self.camera.move_left(dt)
+            if self.keys['key_s']:
+                self.camera.move_backward(dt)
+            if self.keys['key_d']:
+                self.camera.move_right(dt)
+            '''
+            if self.keys['key_q']:
+                self.camera.turn_left(dt)
+            if self.keys['key_e']:
+                self.camera.turn_right(dt)
+            '''
+            if self.keys['key_space']:
+                self.camera.move_up(dt)
+            if self.keys['key_lshift']:
+                self.camera.move_down(dt)
 
-        for label in debug_labels:
-            label.draw()
+        self.renderer.update_uniforms(
+            view_matrix=self.camera.view_matrix,
+            projection_matrix=self.camera.projection_matrix
+        )
 
-    @window.event
-    def on_close():
-        exit_game()
-     
-    global debug_labels
-    debug_labels = initiate_debug_labels(window)
+    def run(self):
+        pyglet.app.run()
 
-    global current_state
-    current_state = None
-
-def exit_game():
-    save_config(config)
-    pyglet.app.exit()    
-
-def update_debug_text(_):
-    global frame_count, fps, start_time
-    frame_count += 1
-    current_time = time.time()
-    delta_time = current_time - start_time
-
-    if delta_time >= 1.0:
-        fps = frame_count / delta_time
-        frame_count = 0
-        start_time = current_time
-
-    debug_labels[0].text = f"FPS: {fps:.2f}. Game State: {current_state}"
-    debug_labels[1].text = f"Window Size: {
-        window.width
-    }x{
-        window.height
-    }"
-    debug_labels[2].text = f"Mouse Position: {
-        user_input["mouse_position"][0]
-    }, {
-        user_input["mouse_position"][1]
-    }"
-
-    window.clear()
-
-def change_state(new_state):
-    if new_state not in game_states:
-        raise ValueError(f"Invalid state name: {new_state}.")
-    global current_state
-    current_state = game_states[new_state]
-
-def run_app():
-    global current_state
-    current_state = game_states["play"]
-    pyglet.clock.schedule_interval(cycle_state, 1/config["fps"])
-    pyglet.app.run()
-
-def cycle_state(delta_time):
-    current_state.update(delta_time, user_input)
-    update_debug_text(delta_time)
-
-def initiate_debug_labels(window):
-    debug_label1 = pyglet.text.Label(
-        "",
-        font_name="Arial",
-        font_size=14,
-        x=10,
-        y=window.height - 10,
-        anchor_x="left",
-        anchor_y="top",
-        color=(255, 255, 255, 255)
-    )
-    debug_label2 = pyglet.text.Label(
-        "",
-        font_name="Arial",
-        font_size=14,
-        x=10,
-        y=window.height - 30,
-        anchor_x="left",
-        anchor_y="top",
-        color=(255, 255, 255, 255)
-    )
-    debug_label3 = pyglet.text.Label(
-        "",
-        font_name="Arial",
-        font_size=14,
-        x=10,
-        y=window.height - 50,
-        anchor_x="left",
-        anchor_y="top",
-        color=(255, 255, 255, 255)
-    )
-
-    return [debug_label1, debug_label2, debug_label3]
 
 if __name__ == "__main__":
-    initiate_app()
-    run_app()
+    app = AstralApp()
+    app.run()

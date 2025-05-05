@@ -1,8 +1,10 @@
-from astral_app import initiate_app, run_app
+from astral_app import AstralApp
+
 
 def main():
-    initiate_app()
-    run_app()
+    astralapp = AstralApp()
+    astralapp.run()
+
 
 if __name__ == "__main__":
     main()
