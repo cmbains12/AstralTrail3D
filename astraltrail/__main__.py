@@ -4,11 +4,24 @@ import pyglet.gl as gl
 import numpy as np
 import ctypes as ct
 
-triangle_mesh = np.array([
+width = 1280
+height = 720
+caption = 'squares'
+
+
+square_vertices = np.array([
     [-0.05, 0.05, 0.0],
     [-0.05, -0.05, 0.0],
     [0.05, -0.05, 0.0],
+    [0.05, 0.05, 0.0]
 ], np.float32)
+
+square_mesh_indices = np.array([
+    0, 1, 2, 
+    2, 3, 0
+], dtype=np.uint32)
+
+square_mesh = np.array([square_vertices[i] for i in square_mesh_indices], dtype=np.float32)
 
 vertex_shader_source_string = b'''
 #version 330 core
@@ -45,7 +58,7 @@ def main():
     def on_draw():
         gl.glClear(gl.GL_COLOR_BUFFER_BIT)
         gl.glUseProgram(render_program)
-        gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 3, model_count)
+        gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 6, model_count)
     
     window.push_handlers(on_draw)
 
@@ -57,21 +70,21 @@ def setup_render_buffers(models):
 
     buffers = {}
 
-    vao_triangle = gl.GLuint()
-    vbo_triangle = gl.GLuint()
-    vbo_triangle_instances = gl.GLuint()
+    vao_square = gl.GLuint()
+    vbo_square = gl.GLuint()
+    vbo_square_instances = gl.GLuint()
 
-    gl.glGenVertexArrays(1, ct.byref(vao_triangle))
-    gl.glGenBuffers(1, ct.byref(vbo_triangle))
-    gl.glGenBuffers(1, ct.byref(vbo_triangle_instances))
+    gl.glGenVertexArrays(1, ct.byref(vao_square))
+    gl.glGenBuffers(1, ct.byref(vbo_square))
+    gl.glGenBuffers(1, ct.byref(vbo_square_instances))
 
-    gl.glBindVertexArray(vao_triangle)
+    gl.glBindVertexArray(vao_square)
 
-    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_triangle)
+    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_square)
     gl.glBufferData(
         gl.GL_ARRAY_BUFFER,
-        triangle_mesh.nbytes,
-        triangle_mesh.ctypes.data_as(ct.POINTER(ct.POINTER(ct.c_float))),
+        square_mesh.nbytes,
+        square_mesh.ctypes.data_as(ct.POINTER(ct.POINTER(ct.c_float))),
         gl.GL_STATIC_DRAW
     )
     gl.glVertexAttribPointer(
@@ -83,11 +96,11 @@ def setup_render_buffers(models):
         ct.c_void_p(0)
     )
     
-    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_triangle_instances)
+    gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_square_instances)
     gl.glBufferData(
         gl.GL_ARRAY_BUFFER, 
-        models['test-triangles'].nbytes,
-        models['test-triangles'].ctypes.data_as(ct.POINTER(ct.c_float)),
+        models['test-squares'].nbytes,
+        models['test-squares'].ctypes.data_as(ct.POINTER(ct.c_float)),
         gl.GL_STATIC_DRAW
     )
     for i in range(4):
@@ -106,9 +119,9 @@ def setup_render_buffers(models):
     gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
     gl.glEnableVertexAttribArray(0)
 
-    buffers['vao-triangle'] = vao_triangle
-    buffers['vbo-triangle'] = vbo_triangle
-    buffers['vbo_triangle_instances'] = vbo_triangle_instances
+    buffers['vao-square'] = vao_square
+    buffers['vbo-square'] = vbo_square
+    buffers['vbo_square_instances'] = vbo_square_instances
 
     return buffers
 
@@ -149,7 +162,7 @@ def configure_gl():
 
 def configure_scene():
     models = {
-        'test-triangles': []
+        'test-squares': []
     }
 
     grid_size = 4
@@ -166,19 +179,16 @@ def configure_scene():
             model[0, 3] = posx
             model[1, 3] = posy
 
-            models['test-triangles'].append(model.T.flatten())
+            models['test-squares'].append(model.T.flatten())
 
             model_count += 1
 
-    models['test-triangles'] = np.array(models['test-triangles'], dtype=np.float32)
+    models['test-squares'] = np.array(models['test-squares'], dtype=np.float32)
 
     return models, model_count
 
 def initiate_window():
 
-    width = 1280
-    height = 720
-    caption = 'triangles'
 
     return pyglet.window.Window(width, height, caption)
 
