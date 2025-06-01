@@ -122,6 +122,8 @@ class PlayState(GameState):
         self.window = window
         self.configuration = state_config
         self.models = {}
+        self.cube_count = 0
+        self.pyramid_count = 0
         self.square_count = 0
         self.triangle_count = 0
         self.key_handler = key.KeyStateHandler()
@@ -136,30 +138,76 @@ class PlayState(GameState):
     def configure_scene(self):
         if self.configuration == 'test':
             self.models = {
-                'test-squares': [],
-                'test-triangles': []
             }
-            self.configure_test_squares(grid=5, sep=0.2)
-            self.configure_test_triangles(grid=5, sep=0.2)
-            return self.models, self.square_count, self.triangle_count
+            self.configure_test_cubes(grid=5, sep=0.2)
+            self.configure_test_pyramids(grid=5, sep=0.2)
+            self.configure_test_squares(grid=0, sep=0.2)
+            self.configure_test_triangles(grid=0, sep=0.2)
+
+            return self.models, self.cube_count, self.pyramid_count, self.square_count, self.triangle_count
         else:
             raise ValueError(f'Unknown PlayState configuration: {self.configuration}')
         
+
+    def configure_test_cubes(self, grid, sep):
+        cubes = []
+
+        for i in range(grid):
+            for j in range(grid):
+                for k in range(grid):
+                    posx = i * sep + sep / 2
+                    posy = j * sep + sep / 2
+                    posz = k * sep + sep / 2
+
+                    cube = np.eye(4, dtype=np.float32)
+                    cube[0, 3] = posx
+                    cube[1, 3] = posy
+                    cube[2, 3] = posz
+
+                    cubes.append(cube.T.flatten())
+
+                    self.cube_count += 1
+
+        self.models['test-cubes'] = np.array(cubes, dtype=np.float32)
+
+    def configure_test_pyramids(self, grid, sep):
+        pyramids = []
+
+        for i in range(grid):
+            for j in range(grid):
+                for k in range(grid):
+                    posx = -i * sep - sep / 2
+                    posy = -j * sep - sep / 2
+                    posz = -k * sep - sep / 2
+                    pyramid = np.eye(4, dtype=np.float32)
+                    pyramid[0, 3] = posx
+                    pyramid[1, 3] = posy
+                    pyramid[2, 3] = posz
+
+                    pyramids.append(pyramid.T.flatten())
+
+                    self.pyramid_count += 1
+
+        self.models['test-pyramids'] = np.array(pyramids, dtype=np.float32)
 
     def configure_test_squares(self, grid, sep):
         squares = []
 
         for i in range(grid):
             for j in range(grid):
-                posx = i * sep + sep / 2
-                posy = j * sep + sep / 2
-                square = np.eye(4, dtype=np.float32)
-                square[0, 3] = posx
-                square[1, 3] = posy
+                for k in range(grid):
+                    posx = i * sep + sep / 2
+                    posy = j * sep + sep / 2
+                    posz = k * sep + sep / 2
 
-                squares.append(square.T.flatten())
+                    square = np.eye(4, dtype=np.float32)
+                    square[0, 3] = posx
+                    square[1, 3] = posy
+                    square[2, 3] = posz
 
-                self.square_count += 1
+                    squares.append(square.T.flatten())
+
+                    self.square_count += 1
 
         self.models['test-squares'] = np.array(squares, dtype=np.float32)
 
@@ -168,17 +216,21 @@ class PlayState(GameState):
 
         for i in range(grid):
             for j in range(grid):
-                posx = -i * sep - sep / 2
-                posy = -j * sep - sep / 2
-                triangle = np.eye(4, dtype=np.float32)
-                triangle[0, 3] = posx
-                triangle[1, 3] = posy
+                for k in range(grid):
+                    posx = -i * sep - sep / 2
+                    posy = -j * sep - sep / 2
+                    posz = -k * sep - sep / 2
+                    triangle = np.eye(4, dtype=np.float32)
+                    triangle[0, 3] = posx
+                    triangle[1, 3] = posy
+                    triangle[2, 3] = posz
 
-                triangles.append(triangle.T.flatten())
+                    triangles.append(triangle.T.flatten())
 
-                self.triangle_count += 1
+                    self.triangle_count += 1
 
         self.models['test-triangles'] = np.array(triangles, dtype=np.float32)
+
 
     def update(self, dt):
         self.handle_keys(dt)

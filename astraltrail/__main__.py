@@ -7,7 +7,7 @@ from gamestate import *
 
 width = 1280
 height = 720
-caption = 'squares and triangles'
+caption = 'cubes and pyramids'
 fps = 60.0
 
 class AstralApp(pyglet.window.Window):
@@ -19,11 +19,11 @@ class AstralApp(pyglet.window.Window):
         config = gl.Config(double_buffer=True, depth_size=24)
         super().__init__(self.wind_width, self.wind_height, self.wind_caption, config=config)
         self.play_state = PlayState(self, self.state_config)
-        models, square_count, triangle_count = self.play_state.configure_scene()
+        models, cube_count, pyramid_count, square_count, triangle_count = self.play_state.configure_scene()
 
         self.render = Renderer(self)
         self.render.configure_gl()
-        self.render.setup_render_buffers(models, square_count, triangle_count)
+        self.render.setup_render_buffers(models=models, cube_count=cube_count, pyramid_count=pyramid_count, square_count=square_count, triangle_count=triangle_count)
 
         self.render.update_proj(self.play_state.camera)
         self.push_handlers(
