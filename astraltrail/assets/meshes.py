@@ -11,6 +11,7 @@ class Square(Object):
     @property
     def mesh(self):
         return np.array([self.vertices[i] for i in self.mesh_indices], dtype=np.float32)
+    
     @property
     def vertices(self):
         return np.array([
@@ -18,7 +19,14 @@ class Square(Object):
             [-0.05, -0.05, 0.0],
             [0.05, -0.05, 0.0],
             [0.05, 0.05, 0.0]
-        ], np.float32)
+        ], dtype=np.float32)
+    
+    @property
+    def aabb(self) -> np.ndarray:
+        return np.array([
+            self.vertices[1], 
+            self.vertices[3]
+        ], dtype=np.float32)
 
     @property
     def mesh_indices(self):
@@ -43,6 +51,13 @@ class Triangle(Object):
             [-0.05, -0.05, 0.0],
             [0.05, -0.05, 0.0]
         ], np.float32)
+    
+    @property
+    def aabb(self) -> np.ndarray:
+        return np.array([
+            self.vertices[1], 
+            [self.vertices[2][0], self.vertices[0][1]]
+        ], dtypes=np.float32)
 
     @property
     def mesh_indices(self) -> np.ndarray:

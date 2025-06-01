@@ -8,7 +8,7 @@ from gamestate import *
 width = 1280
 height = 720
 caption = 'squares and triangles'
-
+fps = 60.0
 
 class AstralApp(pyglet.window.Window):
     def __init__(self, **kwargs):
@@ -16,24 +16,32 @@ class AstralApp(pyglet.window.Window):
         self.wind_height = kwargs.get('height', 600)
         self.wind_caption = kwargs.get('caption', '')
         self.state_config = kwargs.get('config', '')
-        config = gl.Config(double_buffer=True, dpeth_size=24)
-        super().__init__(width, height, caption, config=config)
-        play_state = PlayState(self.state_config)
-        models, square_count, triangle_count = play_state.configure_scene()
+        config = gl.Config(double_buffer=True, depth_size=24)
+        super().__init__(self.wind_width, self.wind_height, self.wind_caption, config=config)
+        self.play_state = PlayState(self, self.state_config)
+        models, square_count, triangle_count = self.play_state.configure_scene()
 
-        self.render = Renderer()
+        self.render = Renderer(self)
         self.render.configure_gl()
         self.render.setup_render_buffers(models, square_count, triangle_count)
 
-        self.push_handlers(self.render.on_draw)
+        self.render.update_proj(self.play_state.camera)
+        self.push_handlers(
+            self.render.on_draw,
+            self.play_state.key_handler
+        )
+
+        pyglet.clock.schedule_interval(self.play_state.update, 1 / fps)
 
     def run(self):
         pyglet.app.run()
 
+    def on_close(self):
+        super().on_close()
+
 def main():
     astral_app = AstralApp(width=width, height=height, caption=caption, config='test')    
     astral_app.run()
-
 
 
 if __name__=='__main__':

@@ -1,4 +1,3 @@
-import pyglet
 import pyglet.gl as gl
 import ctypes as ct
 
@@ -6,9 +5,11 @@ from rendering.shader_sources import ShaderSources as Shaders
 from assets.meshes import *
 
 class Renderer:
-    def __init__(self):
+    def __init__(self, window):
+        self.window = window
         self.render_program = Renderer.create_render_program()
         self.buffers = {}
+
 
     def setup_render_buffers(self, models, square_count, triangle_count):
         self.square_count = square_count
@@ -35,12 +36,12 @@ class Renderer:
         gl.glGenBuffers(1, ct.byref(vbo_triangle_instances))
 
         gl.glBindVertexArray(vao_square)
-
+        square_mesh = Square().mesh.copy()
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_square)
         gl.glBufferData(
             gl.GL_ARRAY_BUFFER,
-            Square().mesh.nbytes,
-            Square().mesh.ctypes.data_as(ct.POINTER(ct.POINTER(ct.c_float))),
+            square_mesh.nbytes,
+            square_mesh.ctypes.data_as(ct.POINTER(ct.c_float)),
             gl.GL_STATIC_DRAW
         )
         gl.glVertexAttribPointer(
@@ -76,12 +77,12 @@ class Renderer:
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
 
         gl.glBindVertexArray(vao_triangle)
-
+        triangle_mesh = Triangle().mesh.copy()
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_triangle)
         gl.glBufferData(
             gl.GL_ARRAY_BUFFER,
-            Triangle().mesh.nbytes,
-            Triangle().mesh.ctypes.data_as(ct.POINTER(ct.POINTER(ct.c_float))),
+            triangle_mesh.nbytes,
+            triangle_mesh.ctypes.data_as(ct.POINTER(ct.c_float)),
             gl.GL_STATIC_DRAW
         )
         gl.glVertexAttribPointer(
@@ -162,12 +163,40 @@ class Renderer:
     @staticmethod
     def configure_gl():
         gl.glClearColor(0.1, 0.1, 0.1, 1.0)
+        gl.glDisable(gl.GL_DEPTH_TEST)
+        gl.glDisable(gl.GL_CULL_FACE)
+        
 
     def on_draw(self):
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
         gl.glUseProgram(self.render_program)
+        self.update_view(self.window.play_state.camera)        
         self.draw_squares(self.square_count)
         self.draw_triangles(self.triangle_count)
+
+    def update_view(self, camera):
+        gl.glUseProgram(self.render_program)
+        
+        view_loc = gl.glGetUniformLocation(self.render_program, b'view')
+
+        gl.glUniformMatrix4fv(
+            view_loc,
+            1,
+            gl.GL_FALSE,
+            camera.view.T.flatten().ctypes.data_as(ct.POINTER(ct.c_float))
+        )
+
+    def update_proj(self, camera):
+        gl.glUseProgram(self.render_program)
+
+        proj_loc = gl.glGetUniformLocation(self.render_program, b'proj')
+
+        gl.glUniformMatrix4fv(
+            proj_loc,
+            1,
+            gl.GL_FALSE,
+            camera.proj.T.flatten().ctypes.data_as(ct.POINTER(ct.c_float))
+        )
 
     def draw_triangles(self, triangle_count):
         gl.glBindVertexArray(self.buffers['vao-triangle'])
@@ -176,3 +205,5 @@ class Renderer:
     def draw_squares(self, square_count):
         gl.glBindVertexArray(self.buffers['vao-square'])
         gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 6, square_count)
+
+    
