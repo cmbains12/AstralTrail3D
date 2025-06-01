@@ -71,15 +71,15 @@ class Camera:
         yaw[0, 0], yaw[2, 2] = cy, cy
         yaw[0, 2], yaw[2, 0] = -sy, sy  
 
-        pitch[0, 0], pitch[2, 2] = cp, cp
-        pitch[0, 2], pitch[2, 0] = sp, -sp 
+        pitch[1, 1], pitch[2, 2] = cp, cp
+        pitch[1, 2], pitch[2, 1] = -sp, sp 
 
-        roll[0, 0], roll[2, 2] = cr, cr
-        roll[0, 2], roll[2, 0] = -sr, sr
+        roll[0, 0], roll[1, 1] = cr, cr
+        roll[0, 1], roll[1, 0] = -sr, sr
 
-        rot = yaw.T @ pitch.T @ roll.T
+        rot =  yaw @ pitch @ roll
 
-        view = rot @ pos        
+        view = rot.T @ pos        
 
         return view       
 
@@ -114,8 +114,6 @@ class Camera:
             self.position -= distance * abs_up
 
 
-
-
 class GameState(ABC):
     pass
 
@@ -131,6 +129,9 @@ class PlayState(GameState):
             pos=np.array([0.0, 0.0, -5.0], dtype=np.float32),
             aspect=window.wind_width / window.wind_height
         )
+        self.active = False
+        self.window.set_exclusive_mouse(True)
+
 
     def configure_scene(self):
         if self.configuration == 'test':
@@ -198,3 +199,26 @@ class PlayState(GameState):
             self.camera.move('climb', dt)
         if self.key_handler[key.LCTRL]:
             self.camera.move('descend', dt)
+
+    def on_mouse_motion(self, x, y, dx, dy):
+        hori_sensitivity = 0.002
+        verti_sensitivity = 0.002
+        self.camera.yaw += dx * hori_sensitivity
+        self.camera.pitch = max(
+            min(
+                self.camera.pitch + dy * verti_sensitivity, 
+                np.radians(89.9)
+            ), np.radians(-89.9)
+        )
+
+
+
+
+        
+
+
+    
+
+
+
+

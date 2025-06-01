@@ -28,7 +28,8 @@ class AstralApp(pyglet.window.Window):
         self.render.update_proj(self.play_state.camera)
         self.push_handlers(
             self.render.on_draw,
-            self.play_state.key_handler
+            self.play_state.key_handler,
+            self.play_state.on_mouse_motion
         )
 
         pyglet.clock.schedule_interval(self.play_state.update, 1 / fps)
