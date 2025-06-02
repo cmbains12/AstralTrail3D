@@ -126,6 +126,7 @@ class PlayState(GameState):
         self.pyramid_count = 0
         self.square_count = 0
         self.triangle_count = 0
+        self.teapot_count = 0
         self.key_handler = key.KeyStateHandler()
         self.camera = Camera(
             pos=np.array([0.0, 0.0, -5.0], dtype=np.float32),
@@ -139,15 +140,36 @@ class PlayState(GameState):
         if self.configuration == 'test':
             self.models = {
             }
-            self.configure_test_cubes(grid=5, sep=0.2)
-            self.configure_test_pyramids(grid=5, sep=0.2)
+            self.configure_test_cubes(grid=0, sep=0.2)
+            self.configure_test_pyramids(grid=0, sep=0.2)
             self.configure_test_squares(grid=0, sep=0.2)
             self.configure_test_triangles(grid=0, sep=0.2)
+            self.configure_test_teapots(grid=10, sep=10)
 
-            return self.models, self.cube_count, self.pyramid_count, self.square_count, self.triangle_count
+            return self.models, self.cube_count, self.pyramid_count, self.square_count, self.triangle_count, self.teapot_count
         else:
             raise ValueError(f'Unknown PlayState configuration: {self.configuration}')
-        
+
+    def configure_test_teapots(self, grid, sep):
+        teapots = []
+
+        for i in range(grid):
+            for j in range(grid):
+                for k in range(grid):
+                    posx = -i * sep - sep / 2
+                    posy = j * sep + sep / 2
+                    posz = k * sep + sep / 2
+
+                    teacup = np.eye(4, dtype=np.float32)
+                    teacup[0, 3] = posx
+                    teacup[1, 3] = posy
+                    teacup[2, 3] = posz
+
+                    teapots.append(teacup.T.flatten())
+
+                    self.teapot_count += 1
+
+        self.models['test-teapots'] = np.array(teapots, dtype=np.float32)
 
     def configure_test_cubes(self, grid, sep):
         cubes = []

@@ -9,319 +9,170 @@ class Renderer:
         self.window = window
         self.render_program = Renderer.create_render_program()
         self.buffers = {}
+        self.f_count = {
+            'triangle': Triangle()._f_count,
+            'square': Square()._f_count,
+            'cube': Cube()._f_count,
+            'pyramid': Pyramid()._f_count,
+            'teapot': Teapot()._f_count,
+        }
+        self.objects = {
+            'triangle': {
+                'name': 'triangle',
+                'count': 0,
+            }, 'square': {
+                'name': 'square',
+                'count': 0,
+            }, 'cube': {
+                'name': 'cube',
+                'count': 0,
+            }, 'pyramid': {
+                'name': 'pyramid',
+                'count': 0,
+            }, 'teapot': {
+                'name': 'teapot',
+                'count': 0,
+            },
+        }
 
+    def setup_object_buffer(self, model_name, mesh_matrix, norms_matrix, instance_matrix, instance_count):
+        self.objects[model_name]['count'] = instance_count
+
+        gl.glBindVertexArray(0)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+
+        vao = gl.GLuint()
+        vbo = gl.GLuint()
+        vbo_norms = gl.GLuint()
+        vbo_instances = gl.GLuint()
+
+        gl.glGenVertexArrays(1, ct.byref(vao))
+        gl.glGenBuffers(1, ct.byref(vbo))
+        gl.glGenBuffers(1, ct.byref(vbo_norms))
+        gl.glGenBuffers(1, ct.byref(vbo_instances))
+
+        gl.glBindVertexArray(vao)
+
+        mesh = mesh_matrix
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            mesh.nbytes,
+            mesh.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            0,
+            3,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(0)
+
+        norms = norms_matrix
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_norms)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            norms.nbytes,
+            norms.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            1,
+            3,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(1)  
+
+        instances = instance_matrix
+        
+        if instance_matrix is not None:
+            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_instances)
+            gl.glBufferData(
+                gl.GL_ARRAY_BUFFER, 
+                instances.nbytes,
+                instances.ctypes.data_as(ct.POINTER(ct.c_float)),
+                gl.GL_STATIC_DRAW
+            )
+            for i in range(4):
+                loc = 2 + i
+                gl.glEnableVertexAttribArray(loc)
+                gl.glVertexAttribPointer(
+                    loc,
+                    4,
+                    gl.GL_FLOAT,
+                    gl.GL_FALSE, 
+                    64,
+                    ct.c_void_p(i * 16)
+                )
+                gl.glVertexAttribDivisor(loc, 1)
+
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+        gl.glBindVertexArray(0)
+
+        self.buffers[f'vao-{model_name}'] = vao
+        self.buffers[f'vbo-{model_name}'] = vbo
+        self.buffers[f'vbo-{model_name}-norms'] = vbo_norms
+        self.buffers[f'vbo-{model_name}-instances'] = vbo_instances
 
     def setup_render_buffers(self, **kwargs):
         self.models = kwargs.get('models', None)
-        self.square_count = kwargs.get('square_count', 0)
-        self.triangle_count = kwargs.get('triangle_count', 0)
-        self.cube_count = kwargs.get('cube_count', 0)
-        self.pyramid_count = kwargs.get('pyramid_count', 0)
-        gl.glBindVertexArray(0)
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+        meshes = {
+            'triangle': Triangle().mesh.copy(),
+            'square': Square().mesh.copy(),
+            'cube': Cube().mesh.copy(),
+            'pyramid': Pyramid().mesh.copy(),
+            'teapot': Teapot().mesh.copy(),
+        }
+        norms = {
+            'triangle': Triangle().mesh_normals.copy(),
+            'square': Square().mesh_normals.copy(),
+            'cube': Cube().mesh_normals.copy(),
+            'pyramid': Pyramid().mesh_normals.copy(),
+            'teapot': Teapot().mesh_normals.copy(),
+        }
 
-        vao_square = gl.GLuint()
-        vao_triangle = gl.GLuint()
-        vao_cube = gl.GLuint()
-        vao_pyramid = gl.GLuint()
-
-        vbo_square = gl.GLuint()
-        vbo_triangle = gl.GLuint()
-        vbo_cube = gl.GLuint()
-        vbo_pyramid = gl.GLuint()
-
-        vbo_square_norms = gl.GLuint()
-        vbo_triangle_norms = gl.GLuint()
-        vbo_cube_norms = gl.GLuint()
-        vbo_pyramid_norms = gl.GLuint()        
-
-        vbo_square_instances = gl.GLuint()
-        vbo_triangle_instances = gl.GLuint()
-        vbo_cube_instances = gl.GLuint()
-        vbo_pyramid_instances = gl.GLuint()
-        
-        gl.glGenVertexArrays(1, ct.byref(vao_square))
-        gl.glGenVertexArrays(1, ct.byref(vao_triangle))
-        gl.glGenVertexArrays(1, ct.byref(vao_cube))
-        gl.glGenVertexArrays(1, ct.byref(vao_pyramid))
-
-        gl.glGenBuffers(1, ct.byref(vbo_square))
-        gl.glGenBuffers(1, ct.byref(vbo_triangle))
-        gl.glGenBuffers(1, ct.byref(vbo_cube))
-        gl.glGenBuffers(1, ct.byref(vbo_pyramid))
-
-        gl.glGenBuffers(1, ct.byref(vbo_square_norms))
-        gl.glGenBuffers(1, ct.byref(vbo_triangle_norms))
-        gl.glGenBuffers(1, ct.byref(vbo_cube_norms))
-        gl.glGenBuffers(1, ct.byref(vbo_pyramid_norms))
-
-        gl.glGenBuffers(1, ct.byref(vbo_square_instances))
-        gl.glGenBuffers(1, ct.byref(vbo_triangle_instances))
-        gl.glGenBuffers(1, ct.byref(vbo_cube_instances))
-        gl.glGenBuffers(1, ct.byref(vbo_pyramid_instances))
-
-        gl.glBindVertexArray(vao_square)
-
-        square_mesh = Square().mesh.copy()
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_square)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER,
-            square_mesh.nbytes,
-            square_mesh.ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
+        self.setup_object_buffer(
+            model_name='triangle', 
+            mesh_matrix=meshes.get('triangle'), 
+            norms_matrix=norms.get('triangle'), 
+            instance_matrix=self.models.get('test-triangles'), 
+            instance_count=kwargs.get('triangle_count', 0)
         )
-        gl.glVertexAttribPointer(
-            0,
-            3,
-            gl.GL_FLOAT,
-            gl.GL_FALSE,
-            0,
-            ct.c_void_p(0)
+
+        self.setup_object_buffer(
+            model_name='square', 
+            mesh_matrix=meshes.get('square'), 
+            norms_matrix=norms.get('square'), 
+            instance_matrix=self.models.get('test-squares'), 
+            instance_count=kwargs.get('square_count', 0)
         )
-        gl.glEnableVertexAttribArray(0)
-
-        square_norms = Square().mesh_normals.copy()
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_square_norms)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER,
-            square_norms.nbytes,
-            square_norms.ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
+        self.setup_object_buffer(
+            model_name='cube', 
+            mesh_matrix=meshes.get('cube'), 
+            norms_matrix=norms.get('cube'), 
+            instance_matrix=self.models.get('test-cubes'), 
+            instance_count=kwargs.get('cube_count', 0)
         )
-        gl.glVertexAttribPointer(
-            1,
-            3,
-            gl.GL_FLOAT,
-            gl.GL_FALSE,
-            0,
-            ct.c_void_p(0)
+        self.setup_object_buffer(
+            model_name='pyramid', 
+            mesh_matrix=meshes.get('pyramid'), 
+            norms_matrix=norms.get('pyramid'), 
+            instance_matrix=self.models.get('test-pyramids'), 
+            instance_count=kwargs.get('pyramid_count', 0)
         )
-        gl.glEnableVertexAttribArray(1)  
-
-        squares = self.models.get('test-squares')
-        
-        if squares is not None:
-            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_square_instances)
-            gl.glBufferData(
-                gl.GL_ARRAY_BUFFER, 
-                squares.nbytes,
-                squares.ctypes.data_as(ct.POINTER(ct.c_float)),
-                gl.GL_STATIC_DRAW
-            )
-            for i in range(4):
-                loc = 1 + i
-                gl.glEnableVertexAttribArray(loc)
-                gl.glVertexAttribPointer(
-                    loc,
-                    4,
-                    gl.GL_FLOAT,
-                    gl.GL_FALSE, 
-                    64,
-                    ct.c_void_p(i * 16)
-                )
-                gl.glVertexAttribDivisor(loc, 1)
-
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
-
-        gl.glBindVertexArray(vao_triangle)
-        triangle_mesh = Triangle().mesh.copy()
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_triangle)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER,
-            triangle_mesh.nbytes,
-            triangle_mesh.ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
+        self.setup_object_buffer(
+            model_name='teapot', 
+            mesh_matrix=meshes.get('teapot'), 
+            norms_matrix=norms.get('teapot'), 
+            instance_matrix=self.models.get('test-teapots'), 
+            instance_count=kwargs.get('teapot_count', 0)
         )
-        gl.glVertexAttribPointer(
-            0,
-            3,
-            gl.GL_FLOAT,
-            gl.GL_FALSE,
-            0,
-            ct.c_void_p(0)
-        )
-        gl.glEnableVertexAttribArray(0)
-
-        triangle_norms = Triangle().mesh_normals.copy()
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_triangle_norms)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER,
-            triangle_norms.nbytes,
-            triangle_norms.ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
-        )
-        gl.glVertexAttribPointer(
-            1,
-            3,
-            gl.GL_FLOAT,
-            gl.GL_FALSE,
-            0,
-            ct.c_void_p(0)
-        )
-        gl.glEnableVertexAttribArray(1)  
-
-        triangles = self.models.get('test-triangles')
-
-        if triangles is not None:
-            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_triangle_instances)
-            gl.glBufferData(
-                gl.GL_ARRAY_BUFFER, 
-                triangles.nbytes,
-                triangles.ctypes.data_as(ct.POINTER(ct.c_float)),
-                gl.GL_STATIC_DRAW
-            )
-            for i in range(4):
-                loc = 1 + i
-                gl.glEnableVertexAttribArray(loc)
-                gl.glVertexAttribPointer(
-                    loc,
-                    4,
-                    gl.GL_FLOAT,
-                    gl.GL_FALSE, 
-                    64,
-                    ct.c_void_p(i * 16)
-                )
-                gl.glVertexAttribDivisor(loc, 1)
-
-        gl.glBindVertexArray(vao_cube)
-        cube_mesh = Cube().mesh.copy()
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_cube)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER,
-            cube_mesh.nbytes,
-            cube_mesh.ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
-        )
-        gl.glVertexAttribPointer(
-            0,
-            3,
-            gl.GL_FLOAT,
-            gl.GL_FALSE,
-            0,
-            ct.c_void_p(0)
-        )
-        gl.glEnableVertexAttribArray(0)
-
-        cube_norms = Cube().mesh_normals.copy()
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_cube_norms)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER,
-            cube_norms.nbytes,
-            cube_norms.ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
-        )
-        gl.glVertexAttribPointer(
-            1,
-            3,
-            gl.GL_FLOAT,
-            gl.GL_FALSE,
-            0,
-            ct.c_void_p(0)
-        )
-        gl.glEnableVertexAttribArray(1)          
-        
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_cube_instances)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER, 
-            self.models['test-cubes'].nbytes,
-            self.models['test-cubes'].ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
-        )
-        for i in range(4):
-            loc = 2 + i
-            gl.glEnableVertexAttribArray(loc)
-            gl.glVertexAttribPointer(
-                loc,
-                4,
-                gl.GL_FLOAT,
-                gl.GL_FALSE, 
-                64,
-                ct.c_void_p(i * 16)
-            )
-            gl.glVertexAttribDivisor(loc, 1)
-
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
-
-        gl.glBindVertexArray(vao_pyramid)
-        pyramid_mesh = Pyramid().mesh.copy()
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_pyramid)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER,
-            pyramid_mesh.nbytes,
-            pyramid_mesh.ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
-        )
-        gl.glVertexAttribPointer(
-            0,
-            3,
-            gl.GL_FLOAT,
-            gl.GL_FALSE,
-            0,
-            ct.c_void_p(0)
-        )
-        gl.glEnableVertexAttribArray(0)
-
-        pyramid_norms = Pyramid().mesh_normals.copy()
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_pyramid_norms)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER,
-            pyramid_norms.nbytes,
-            pyramid_norms.ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
-        )
-        gl.glVertexAttribPointer(
-            1,
-            3,
-            gl.GL_FLOAT,
-            gl.GL_FALSE,
-            0,
-            ct.c_void_p(0)
-        )
-        gl.glEnableVertexAttribArray(1)  
-
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_pyramid_instances)
-        gl.glBufferData(
-            gl.GL_ARRAY_BUFFER, 
-            self.models['test-pyramids'].nbytes,
-            self.models['test-pyramids'].ctypes.data_as(ct.POINTER(ct.c_float)),
-            gl.GL_STATIC_DRAW
-        )
-        for i in range(4):
-            loc = 2 + i
-            gl.glEnableVertexAttribArray(loc)
-            gl.glVertexAttribPointer(
-                loc,
-                4,
-                gl.GL_FLOAT,
-                gl.GL_FALSE, 
-                64,
-                ct.c_void_p(i * 16)
-            )
-            gl.glVertexAttribDivisor(loc, 1)
-
-
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
-        gl.glBindVertexArray(0)
-
-        self.buffers['vao-square'] = vao_square
-        self.buffers['vbo-square'] = vbo_square
-        self.buffers['vbo-square-norms'] = vbo_square_norms
-        self.buffers['vbo-square-instances'] = vbo_square_instances
-
-        self.buffers['vao-triangle'] = vao_triangle
-        self.buffers['vbo-triangle'] = vbo_triangle
-        self.buffers['vbo-triangle-norms'] = vbo_triangle_norms
-        self.buffers['vbo-triangle-instances'] = vbo_triangle_instances
-
-        self.buffers['vao-cube'] = vao_cube
-        self.buffers['vbo-cube'] = vbo_cube
-        self.buffers['vbo-cube-norms'] = vbo_cube_norms
-        self.buffers['vbo-cube-instances'] = vbo_cube_instances
-
-        self.buffers['vao-pyramid'] = vao_pyramid
-        self.buffers['vbo-pyramid'] = vbo_pyramid
-        self.buffers['vbo-pyramid-norms'] = vbo_pyramid_norms
-        self.buffers['vbo-pyramid-instances'] = vbo_pyramid_instances
 
     @staticmethod
     def create_render_program():
@@ -366,12 +217,11 @@ class Renderer:
     def on_draw(self):
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
         gl.glUseProgram(self.render_program)
-        self.update_view(self.window.play_state.camera)        
-        self.draw_squares(self.square_count)
-        self.draw_triangles(self.triangle_count)
-        self.draw_cubes(self.cube_count)
-        self.draw_pyramids(self.pyramid_count)
+        self.update_view(self.window.play_state.camera)
 
+        for model in self.objects.values():
+            self.draw_object(model['name'], model['count'])
+         
     def update_view(self, camera):
         gl.glUseProgram(self.render_program)
         
@@ -396,18 +246,8 @@ class Renderer:
             camera.proj.T.flatten().ctypes.data_as(ct.POINTER(ct.c_float))
         )
 
-    def draw_triangles(self, triangle_count):
-        gl.glBindVertexArray(self.buffers['vao-triangle'])
-        gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 3, triangle_count)
-
-    def draw_squares(self, square_count):
-        gl.glBindVertexArray(self.buffers['vao-square'])
-        gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 6, square_count)
-
-    def draw_cubes(self, cube_count):
-        gl.glBindVertexArray(self.buffers['vao-cube'])
-        gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 36, cube_count)
-    
-    def draw_pyramids(self, pyramid_count):
-        gl.glBindVertexArray(self.buffers['vao-pyramid'])
-        gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, 12, pyramid_count)
+    def draw_object(self, object_model, object_count):
+        face_count = self.f_count[f'{object_model}']
+        vertex_draw_count = 3 * face_count
+        gl.glBindVertexArray(self.buffers[f'vao-{object_model}'])
+        gl.glDrawArraysInstanced(gl.GL_TRIANGLES, 0, vertex_draw_count, object_count)

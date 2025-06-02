@@ -9,9 +9,9 @@ class Object(ABC):
     def mesh(self):
         pass
 
-class Cube(Object):
+class Teapot(Object):
     def __init__(self):
-        self._vertices, self._faces, self._normals = import_object_file('cube.obj').values()
+        self._vertices, self._faces, self._normals, self._v_count, self._f_count = import_object_file('teapot.obj').values()
         self._mesh_indices, self._norm_indices = convert_faces_to_index_arrays(self._faces)
         
 
@@ -44,10 +44,46 @@ class Cube(Object):
     @property
     def norm_indices(self) -> np.ndarray:
         return self._norm_indices
+    
+
+class Cube(Object):
+    def __init__(self):
+        self._vertices, self._faces, self._normals, self._v_count, self._f_count = import_object_file('cube.obj').values()
+        self._mesh_indices, self._norm_indices = convert_faces_to_index_arrays(self._faces)
+        
+    @property
+    def mesh(self) -> np.ndarray:
+        return np.array([self._vertices[i] for i in self._mesh_indices], dtype=np.float32)
+    
+    @property
+    def mesh_normals(self) -> np.ndarray:
+        return np.array([self._normals[i] for i in self._norm_indices], dtype=np.float32)
+    
+    @property
+    def vertices(self) -> np.ndarray:
+        return self._vertices.copy()
+    
+    @property
+    def normals(self) -> np.ndarray:
+        return self._normals.copy()
+    
+    @property
+    def aabb(self) -> np.ndarray:
+        return np.array([
+            self.vertices[6], 
+            self.vertices[3]
+        ], dtype=np.float32)
+
+    @property
+    def mesh_indices(self) -> np.ndarray:
+        return self._mesh_indices
+    @property
+    def norm_indices(self) -> np.ndarray:
+        return self._norm_indices
 
 class Square(Object):
     def __init__(self):
-        self._vertices, self._faces, self._normals = import_object_file('square.obj').values()
+        self._vertices, self._faces, self._normals, self._v_count, self._f_count = import_object_file('square.obj').values()
         self._mesh_indices, self._norm_indices = convert_faces_to_index_arrays(self._faces)
 
     @property
@@ -82,7 +118,7 @@ class Square(Object):
 
 class Triangle(Object):
     def __init__(self):
-        self._vertices, self._faces, self._normals = import_object_file('triangle.obj').values()
+        self._vertices, self._faces, self._normals, self._v_count, self._f_count = import_object_file('triangle.obj').values()
         self._mesh_indices, self._norm_indices = convert_faces_to_index_arrays(self._faces)
 
     @property
@@ -117,7 +153,7 @@ class Triangle(Object):
        
 class Pyramid(Object):
     def __init__(self):
-        self._vertices, self._faces, self._normals = import_object_file('pyramid.obj').values()
+        self._vertices, self._faces, self._normals, self._v_count, self._f_count = import_object_file('pyramid.obj').values()
         self._mesh_indices, self._norm_indices = convert_faces_to_index_arrays(self._faces)
 
     @property
@@ -157,11 +193,12 @@ def import_object_file(file_name):
     if not os.path.exists(full_path):
         raise FileNotFoundError(f'OBJ file not found: {full_path}')
     
-
-
     vertices = []
     normals = []
     faces = []
+
+    face_count = 0
+    vertex_count = 0
 
     with open(full_path) as file:
         lines = file.readlines()
@@ -169,6 +206,7 @@ def import_object_file(file_name):
     for line in lines:
         if line.startswith('v '):
             vertices.append(list(map(float, line.strip().split()[1:])))
+            vertex_count += 1
         elif line.startswith('vn '):
             normals.append(list(map(float, line.strip().split()[1:])))
         elif line.startswith('f '):
@@ -183,6 +221,7 @@ def import_object_file(file_name):
                     vn_index = None
                 face.append((v_index, vn_index))
             faces.append(face)
+            face_count += 1
 
     if not normals:
         new_faces = []
@@ -194,8 +233,6 @@ def import_object_file(file_name):
             l1 = v1 - v0
             l2 = v2 - v0
 
-        
-
             norm = np.cross(l1, l2)
             norm = norm / np.linalg.norm(norm)
 
@@ -206,11 +243,12 @@ def import_object_file(file_name):
 
         faces = new_faces
 
-
     return {
         'vertices': np.array(vertices, dtype=np.float32),
         'faces': faces,
-        'normals': np.array(normals, dtype=np.float32)
+        'normals': np.array(normals, dtype=np.float32),
+        'v_count': vertex_count,
+        'f_count': face_count
     }
             
 def convert_faces_to_index_arrays(faces):
