@@ -41,7 +41,7 @@ class AstralApp(pyglet.window.Window):
         super().on_close()
 
 def main():
-    astral_app = AstralApp(width=width, height=height, caption=caption, config='test')    
+    astral_app = AstralApp(width=width, height=height, caption=caption, config='test')
     astral_app.run()
 
 

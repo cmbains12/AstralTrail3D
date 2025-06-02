@@ -30,6 +30,11 @@ class Renderer:
         vbo_cube = gl.GLuint()
         vbo_pyramid = gl.GLuint()
 
+        vbo_square_norms = gl.GLuint()
+        vbo_triangle_norms = gl.GLuint()
+        vbo_cube_norms = gl.GLuint()
+        vbo_pyramid_norms = gl.GLuint()        
+
         vbo_square_instances = gl.GLuint()
         vbo_triangle_instances = gl.GLuint()
         vbo_cube_instances = gl.GLuint()
@@ -40,11 +45,15 @@ class Renderer:
         gl.glGenVertexArrays(1, ct.byref(vao_cube))
         gl.glGenVertexArrays(1, ct.byref(vao_pyramid))
 
-
         gl.glGenBuffers(1, ct.byref(vbo_square))
         gl.glGenBuffers(1, ct.byref(vbo_triangle))
         gl.glGenBuffers(1, ct.byref(vbo_cube))
         gl.glGenBuffers(1, ct.byref(vbo_pyramid))
+
+        gl.glGenBuffers(1, ct.byref(vbo_square_norms))
+        gl.glGenBuffers(1, ct.byref(vbo_triangle_norms))
+        gl.glGenBuffers(1, ct.byref(vbo_cube_norms))
+        gl.glGenBuffers(1, ct.byref(vbo_pyramid_norms))
 
         gl.glGenBuffers(1, ct.byref(vbo_square_instances))
         gl.glGenBuffers(1, ct.byref(vbo_triangle_instances))
@@ -52,6 +61,7 @@ class Renderer:
         gl.glGenBuffers(1, ct.byref(vbo_pyramid_instances))
 
         gl.glBindVertexArray(vao_square)
+
         square_mesh = Square().mesh.copy()
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_square)
         gl.glBufferData(
@@ -69,6 +79,24 @@ class Renderer:
             ct.c_void_p(0)
         )
         gl.glEnableVertexAttribArray(0)
+
+        square_norms = Square().mesh_normals.copy()
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_square_norms)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            square_norms.nbytes,
+            square_norms.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            1,
+            3,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(1)  
 
         squares = self.models.get('test-squares')
         
@@ -114,6 +142,24 @@ class Renderer:
         )
         gl.glEnableVertexAttribArray(0)
 
+        triangle_norms = Triangle().mesh_normals.copy()
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_triangle_norms)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            triangle_norms.nbytes,
+            triangle_norms.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            1,
+            3,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(1)  
+
         triangles = self.models.get('test-triangles')
 
         if triangles is not None:
@@ -156,6 +202,24 @@ class Renderer:
         )
         gl.glEnableVertexAttribArray(0)
 
+        cube_norms = Cube().mesh_normals.copy()
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_cube_norms)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            cube_norms.nbytes,
+            cube_norms.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            1,
+            3,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(1)          
+        
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_cube_instances)
         gl.glBufferData(
             gl.GL_ARRAY_BUFFER, 
@@ -164,7 +228,7 @@ class Renderer:
             gl.GL_STATIC_DRAW
         )
         for i in range(4):
-            loc = 1 + i
+            loc = 2 + i
             gl.glEnableVertexAttribArray(loc)
             gl.glVertexAttribPointer(
                 loc,
@@ -196,7 +260,25 @@ class Renderer:
             ct.c_void_p(0)
         )
         gl.glEnableVertexAttribArray(0)
-        
+
+        pyramid_norms = Pyramid().mesh_normals.copy()
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_pyramid_norms)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            pyramid_norms.nbytes,
+            pyramid_norms.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            1,
+            3,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(1)  
+
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_pyramid_instances)
         gl.glBufferData(
             gl.GL_ARRAY_BUFFER, 
@@ -205,7 +287,7 @@ class Renderer:
             gl.GL_STATIC_DRAW
         )
         for i in range(4):
-            loc = 1 + i
+            loc = 2 + i
             gl.glEnableVertexAttribArray(loc)
             gl.glVertexAttribPointer(
                 loc,
@@ -219,24 +301,27 @@ class Renderer:
 
 
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
-
         gl.glBindVertexArray(0)
 
         self.buffers['vao-square'] = vao_square
         self.buffers['vbo-square'] = vbo_square
-        self.buffers['vbo_square_instances'] = vbo_square_instances
+        self.buffers['vbo-square-norms'] = vbo_square_norms
+        self.buffers['vbo-square-instances'] = vbo_square_instances
 
         self.buffers['vao-triangle'] = vao_triangle
         self.buffers['vbo-triangle'] = vbo_triangle
-        self.buffers['vbo_triangle_instances'] = vbo_triangle_instances
+        self.buffers['vbo-triangle-norms'] = vbo_triangle_norms
+        self.buffers['vbo-triangle-instances'] = vbo_triangle_instances
 
         self.buffers['vao-cube'] = vao_cube
         self.buffers['vbo-cube'] = vbo_cube
-        self.buffers['vbo_cube_instances'] = vbo_cube_instances
+        self.buffers['vbo-cube-norms'] = vbo_cube_norms
+        self.buffers['vbo-cube-instances'] = vbo_cube_instances
 
         self.buffers['vao-pyramid'] = vao_pyramid
         self.buffers['vbo-pyramid'] = vbo_pyramid
-        self.buffers['vbo_pyramid_instances'] = vbo_pyramid_instances
+        self.buffers['vbo-pyramid-norms'] = vbo_pyramid_norms
+        self.buffers['vbo-pyramid-instances'] = vbo_pyramid_instances
 
     @staticmethod
     def create_render_program():
@@ -274,8 +359,8 @@ class Renderer:
     @staticmethod
     def configure_gl():
         gl.glClearColor(0.1, 0.1, 0.1, 1.0)
-        gl.glDisable(gl.GL_DEPTH_TEST)
-        gl.glDisable(gl.GL_CULL_FACE)
+        gl.glEnable(gl.GL_DEPTH_TEST)
+        gl.glEnable(gl.GL_CULL_FACE)
         
 
     def on_draw(self):
