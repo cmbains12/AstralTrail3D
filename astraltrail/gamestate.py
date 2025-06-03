@@ -40,6 +40,7 @@ class Camera:
             'speed',
             1.0
         )
+        self.sprint = False
 
     @property
     def proj(self):
@@ -84,7 +85,10 @@ class Camera:
         return view       
 
     def move(self, direction, delta):
-        distance = delta * self.speed
+        speed = self.speed
+        if self.sprint:
+            speed *= 5.0
+        distance = delta * speed
         cy, sy = np.cos(self.yaw), np.sin(self.yaw)
         forward = np.eye(3, dtype=np.float32)
         forward[0, 0], forward[2, 2] = cy, cy
@@ -122,16 +126,20 @@ class PlayState(GameState):
         self.window = window
         self.configuration = state_config
         self.models = {}
-        self.cube_count = 0
-        self.pyramid_count = 0
-        self.square_count = 0
-        self.triangle_count = 0
-        self.teapot_count = 0
+        self.counts = {
+            'triangles': 0,
+            'squares': 0,
+            'cubes': 0,
+            'pyramids': 0,
+            'teapots': 0,
+        }
         self.key_handler = key.KeyStateHandler()
         self.camera = Camera(
             pos=np.array([0.0, 0.0, -5.0], dtype=np.float32),
             aspect=window.wind_width / window.wind_height
         )
+        _ = np.array([-0.35, -0.65, 0.45], dtype=np.float32)
+        self.light_direction = _ / np.linalg.norm(_)
         self.active = False
         self.window.set_exclusive_mouse(True)
 
@@ -145,8 +153,13 @@ class PlayState(GameState):
             self.configure_test_squares(grid=0, sep=0.2)
             self.configure_test_triangles(grid=0, sep=0.2)
             self.configure_test_teapots(grid=10, sep=10)
+            
+            return self.models, self.counts
+        elif self.configuration == 'blockcraft':
+            self.models = {}
+            self.configure_test_cubes(grid=1, sep=0.2)
 
-            return self.models, self.cube_count, self.pyramid_count, self.square_count, self.triangle_count, self.teapot_count
+            return self.models, self.counts
         else:
             raise ValueError(f'Unknown PlayState configuration: {self.configuration}')
 
@@ -167,7 +180,7 @@ class PlayState(GameState):
 
                     teapots.append(teacup.T.flatten())
 
-                    self.teapot_count += 1
+                    self.counts['teapots'] += 1
 
         self.models['test-teapots'] = np.array(teapots, dtype=np.float32)
 
@@ -188,7 +201,7 @@ class PlayState(GameState):
 
                     cubes.append(cube.T.flatten())
 
-                    self.cube_count += 1
+                    self.counts['cubes'] += 1
 
         self.models['test-cubes'] = np.array(cubes, dtype=np.float32)
 
@@ -208,7 +221,7 @@ class PlayState(GameState):
 
                     pyramids.append(pyramid.T.flatten())
 
-                    self.pyramid_count += 1
+                    self.counts['pyramids'] += 1
 
         self.models['test-pyramids'] = np.array(pyramids, dtype=np.float32)
 
@@ -229,7 +242,7 @@ class PlayState(GameState):
 
                     squares.append(square.T.flatten())
 
-                    self.square_count += 1
+                    self.counts['squares'] += 1
 
         self.models['test-squares'] = np.array(squares, dtype=np.float32)
 
@@ -249,7 +262,7 @@ class PlayState(GameState):
 
                     triangles.append(triangle.T.flatten())
 
-                    self.triangle_count += 1
+                    self.counts['triangles'] += 1
 
         self.models['test-triangles'] = np.array(triangles, dtype=np.float32)
 
@@ -273,6 +286,11 @@ class PlayState(GameState):
             self.camera.move('climb', dt)
         if self.key_handler[key.LCTRL]:
             self.camera.move('descend', dt)
+
+        if self.key_handler[key.LSHIFT]:
+            self.camera.sprint = True
+        else:
+            self.camera.sprint = False
 
     def on_mouse_motion(self, x, y, dx, dy):
         hori_sensitivity = 0.002

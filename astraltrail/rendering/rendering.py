@@ -1,3 +1,4 @@
+import pyglet
 import pyglet.gl as gl
 import ctypes as ct
 
@@ -14,7 +15,7 @@ class Renderer:
             'square': Square()._f_count,
             'cube': Cube()._f_count,
             'pyramid': Pyramid()._f_count,
-            'teapot': Teapot()._f_count,
+            #'teapot': Teapot()._f_count,
         }
         self.objects = {
             'triangle': {
@@ -29,13 +30,12 @@ class Renderer:
             }, 'pyramid': {
                 'name': 'pyramid',
                 'count': 0,
-            }, 'teapot': {
-                'name': 'teapot',
-                'count': 0,
-            },
+            }
         }
+        self.set_textures()
 
-    def setup_object_buffer(self, model_name, mesh_matrix, norms_matrix, instance_matrix, instance_count):
+
+    def setup_object_buffer(self, model_name, mesh_matrix, norms_matrix, texture_matrix, instance_matrix, instance_count, tangent_matrix, bitangent_matrix):
         self.objects[model_name]['count'] = instance_count
 
         gl.glBindVertexArray(0)
@@ -44,12 +44,18 @@ class Renderer:
         vao = gl.GLuint()
         vbo = gl.GLuint()
         vbo_norms = gl.GLuint()
+        vbo_textures = gl.GLuint()
         vbo_instances = gl.GLuint()
+        vbo_tangents = gl.GLuint()
+        vbo_bitangents = gl.GLuint()        
 
         gl.glGenVertexArrays(1, ct.byref(vao))
         gl.glGenBuffers(1, ct.byref(vbo))
         gl.glGenBuffers(1, ct.byref(vbo_norms))
+        gl.glGenBuffers(1, ct.byref(vbo_textures))
         gl.glGenBuffers(1, ct.byref(vbo_instances))
+        gl.glGenBuffers(1, ct.byref(vbo_tangents))
+        gl.glGenBuffers(1, ct.byref(vbo_bitangents))        
 
         gl.glBindVertexArray(vao)
 
@@ -89,6 +95,58 @@ class Renderer:
         )
         gl.glEnableVertexAttribArray(1)  
 
+        textures = texture_matrix
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_textures)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            textures.nbytes,
+            textures.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            2,
+            2,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(2)
+
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_tangents)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            tangent_matrix.nbytes,
+            tangent_matrix.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            3,
+            3,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(3)     
+
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo_bitangents)
+        gl.glBufferData(
+            gl.GL_ARRAY_BUFFER,
+            bitangent_matrix.nbytes,
+            bitangent_matrix.ctypes.data_as(ct.POINTER(ct.c_float)),
+            gl.GL_STATIC_DRAW
+        )
+        gl.glVertexAttribPointer(
+            4,
+            3,
+            gl.GL_FLOAT,
+            gl.GL_FALSE,
+            0,
+            ct.c_void_p(0)
+        )
+        gl.glEnableVertexAttribArray(4)             
+
         instances = instance_matrix
         
         if instance_matrix is not None:
@@ -100,7 +158,7 @@ class Renderer:
                 gl.GL_STATIC_DRAW
             )
             for i in range(4):
-                loc = 2 + i
+                loc = 5 + i
                 gl.glEnableVertexAttribArray(loc)
                 gl.glVertexAttribPointer(
                     loc,
@@ -118,61 +176,93 @@ class Renderer:
         self.buffers[f'vao-{model_name}'] = vao
         self.buffers[f'vbo-{model_name}'] = vbo
         self.buffers[f'vbo-{model_name}-norms'] = vbo_norms
+        self.buffers[f'vbo_{model_name}-textures'] = vbo_textures
         self.buffers[f'vbo-{model_name}-instances'] = vbo_instances
+        self.buffers[f'vbo-{model_name}-tangents'] = vbo_tangents
+        self.buffers[f'vbo-{model_name}-bitangents'] = vbo_bitangents        
 
     def setup_render_buffers(self, **kwargs):
+        counts = kwargs.get('counts')
         self.models = kwargs.get('models', None)
         meshes = {
             'triangle': Triangle().mesh.copy(),
             'square': Square().mesh.copy(),
             'cube': Cube().mesh.copy(),
             'pyramid': Pyramid().mesh.copy(),
-            'teapot': Teapot().mesh.copy(),
+            #'teapot': Teapot().mesh.copy(),
         }
         norms = {
             'triangle': Triangle().mesh_normals.copy(),
             'square': Square().mesh_normals.copy(),
             'cube': Cube().mesh_normals.copy(),
             'pyramid': Pyramid().mesh_normals.copy(),
-            'teapot': Teapot().mesh_normals.copy(),
+            #'teapot': Teapot().mesh_normals.copy(),
         }
-
+        textures = {
+            'triangle': Triangle().texture_coordinates.copy(),
+            'square': Square().texture_coordinates.copy(),
+            'cube': Cube().texture_coordinates.copy(),
+            'pyramid': Pyramid().texture_coordinates.copy(),
+            #'teapot': Teapot().texture_coordinates.copy(),
+        }
+        tangents = {
+            'triangle': compute_tangents(meshes.get('triangle'), norms.get('triangle'), textures.get('triangle')),
+            'square': compute_tangents(meshes.get('square'), norms.get('square'), textures.get('square')),
+            'cube': compute_tangents(meshes.get('cube'), norms.get('cube'), textures.get('cube')),
+            'pyramid': compute_tangents(meshes.get('pyramid'), norms.get('pyramid'), textures.get('pyramid')),
+        }
+        
         self.setup_object_buffer(
             model_name='triangle', 
             mesh_matrix=meshes.get('triangle'), 
             norms_matrix=norms.get('triangle'), 
+            texture_matrix=textures.get('triangle'),
             instance_matrix=self.models.get('test-triangles'), 
-            instance_count=kwargs.get('triangle_count', 0)
+            instance_count=counts.get('triangles', 0),
+            tangent_matrix=tangents.get('triangle')[0],
+            bitangent_matrix=tangents.get('triangle')[1]
         )
 
         self.setup_object_buffer(
             model_name='square', 
             mesh_matrix=meshes.get('square'), 
             norms_matrix=norms.get('square'), 
+            texture_matrix=textures.get('square'),
             instance_matrix=self.models.get('test-squares'), 
-            instance_count=kwargs.get('square_count', 0)
+            instance_count=counts.get('squares', 0),
+            tangent_matrix=tangents.get('square')[0],
+            bitangent_matrix=tangents.get('square')[1]
         )
         self.setup_object_buffer(
             model_name='cube', 
             mesh_matrix=meshes.get('cube'), 
             norms_matrix=norms.get('cube'), 
+            texture_matrix=textures.get('cube'),
             instance_matrix=self.models.get('test-cubes'), 
-            instance_count=kwargs.get('cube_count', 0)
+            instance_count=counts.get('cubes', 0),
+            tangent_matrix=tangents.get('cube')[0],
+            bitangent_matrix=tangents.get('cube')[1]
         )
         self.setup_object_buffer(
             model_name='pyramid', 
             mesh_matrix=meshes.get('pyramid'), 
             norms_matrix=norms.get('pyramid'), 
+            texture_matrix=textures.get('pyramid'),
             instance_matrix=self.models.get('test-pyramids'), 
-            instance_count=kwargs.get('pyramid_count', 0)
+            instance_count=counts.get('pyramid', 0),
+            tangent_matrix=tangents.get('pyramid')[0],
+            bitangent_matrix=tangents.get('pyramid')[1]
         )
+        '''
         self.setup_object_buffer(
             model_name='teapot', 
             mesh_matrix=meshes.get('teapot'), 
             norms_matrix=norms.get('teapot'), 
+            texture_matrix=textures.get('teapot'),
             instance_matrix=self.models.get('test-teapots'), 
-            instance_count=kwargs.get('teapot_count', 0)
+            instance_count=counts.get('teapots', 0)
         )
+        '''
 
     @staticmethod
     def create_render_program():
@@ -212,16 +302,89 @@ class Renderer:
         gl.glClearColor(0.1, 0.1, 0.1, 1.0)
         gl.glEnable(gl.GL_DEPTH_TEST)
         gl.glEnable(gl.GL_CULL_FACE)
+
+    def load_texture_map(self, unit, file_name):
+        base_path = os.path.dirname(__file__)
+        full_path = os.path.join(base_path, '..', 'assets', 'textures', 'cobble', file_name)
+
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f'Texture file not found: {full_path}')        
         
+        texture = pyglet.image.load(full_path).get_texture()
+
+        gl.glActiveTexture(gl.GL_TEXTURE0 + unit)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, texture.id)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_LINEAR)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_REPEAT)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_REPEAT)
+
+        return texture
+    
+    def set_textures(self):
+        self.base_colour = self.load_texture_map(0, 'Wall_Stone_025_basecolor.png')
+        self.height = self.load_texture_map(1, 'Wall_Stone_025_height.png')
+        self.normal = self.load_texture_map(2, 'Wall_Stone_025_normal.png')
+        self.roughness = self.load_texture_map(3, 'Wall_Stone_025_roughness.png')
+        self.ambient_occlusion = self.load_texture_map(4, 'Wall_Stone_025_ambientOcclusion.png')
 
     def on_draw(self):
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
         gl.glUseProgram(self.render_program)
         self.update_view(self.window.play_state.camera)
+        self.update_light_direction(self.window.play_state.light_direction)
+        self.update_texture()
+        self.update_normal()
+        self.update_height()
+        self.update_roughness()
+        self.update_ao()
+        self.update_view_position(self.window.play_state.camera.position)
 
         for model in self.objects.values():
             self.draw_object(model['name'], model['count'])
-         
+
+    def update_tangents(self):
+        pass
+
+    def update_bitangents(self):
+        pass
+
+    def update_texture(self):
+        gl.glUseProgram(self.render_program)
+        gl.glActiveTexture(gl.GL_TEXTURE0)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.base_colour.id)
+        tex_loc = gl.glGetUniformLocation(self.render_program, b'textureSampler')
+        gl.glUniform1i(tex_loc, 0)
+
+    def update_normal(self):
+        gl.glUseProgram(self.render_program)
+        gl.glActiveTexture(gl.GL_TEXTURE2)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.normal.id)
+        tex_loc = gl.glGetUniformLocation(self.render_program, b'normalMap')
+        gl.glUniform1i(tex_loc, 2)
+
+    def update_height(self):
+        gl.glUseProgram(self.render_program)
+        gl.glActiveTexture(gl.GL_TEXTURE1)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.height.id)
+        tex_loc = gl.glGetUniformLocation(self.render_program, b'heightMap')
+        gl.glUniform1i(tex_loc, 1)       
+
+    def update_roughness(self):
+        gl.glUseProgram(self.render_program)
+        gl.glActiveTexture(gl.GL_TEXTURE3)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.roughness.id)
+        tex_loc = gl.glGetUniformLocation(self.render_program, b'roughnessMap')
+        gl.glUniform1i(tex_loc, 3)     
+
+    def update_ao(self):
+        gl.glUseProgram(self.render_program)
+        gl.glActiveTexture(gl.GL_TEXTURE4)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.ambient_occlusion.id)
+        tex_loc = gl.glGetUniformLocation(self.render_program, b'aoMap')
+        gl.glUniform1i(tex_loc, 4)        
+
+
     def update_view(self, camera):
         gl.glUseProgram(self.render_program)
         
@@ -244,6 +407,26 @@ class Renderer:
             1,
             gl.GL_FALSE,
             camera.proj.T.flatten().ctypes.data_as(ct.POINTER(ct.c_float))
+        )
+
+    def update_light_direction(self, light_direction):
+        gl.glUseProgram(self.render_program)
+
+        light_loc = gl.glGetUniformLocation(self.render_program, b'lightDir')
+
+        gl.glUniform3fv(
+            light_loc,
+            1,
+            light_direction.ctypes.data_as(ct.POINTER(ct.c_float))
+        )
+
+    def update_view_position(self, view_pos):
+        gl.glUseProgram(self.render_program)
+        view_loc = gl.glGetUniformLocation(self.render_program, b'viewPos')
+        gl.glUniform3fv(
+            view_loc,
+            1,
+            view_pos.ctypes.data_as(ct.POINTER(ct.c_float))
         )
 
     def draw_object(self, object_model, object_count):
