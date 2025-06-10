@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from pyglet.window import key
 
+
 class Camera:
     def __init__(self, **kwargs):
         self.position = kwargs.get(
@@ -139,13 +140,25 @@ class PlayState(GameState):
             aspect=window.wind_width / window.wind_height
         )
         _ = np.array([-0.35, -0.65, 0.45], dtype=np.float32)
-        self.light_direction = _ / np.linalg.norm(_)
+        #self.light_direction = _ / np.linalg.norm(_)
+
+        init_pos = np.array([35.0, 65.0, 45.0], dtype=np.float32)
+        __ = np.cross(np.array([0.0, 1.0, 0.0], dtype=np.float32), init_pos)
+        axis = np.cross(init_pos, __)
+        axis = axis / np.linalg.norm(axis)
+
+        self.light = {
+            'position': np.array([35.0, 65.0, 45.0], dtype=np.float32),
+            'pos_init': np.array([35.0, 65.0, 45.0], dtype=np.float32),
+            'axis': axis,
+            'rate': 1.0,
+        }
+
         self.active = False
         self.window.set_exclusive_mouse(True)
 
-
     def configure_scene(self):
-        if self.configuration == 'test':
+        if self.configuration['name'] == 'test':
             self.models = {
             }
             self.configure_test_cubes(grid=0, sep=0.2)
@@ -155,13 +168,20 @@ class PlayState(GameState):
             self.configure_test_teapots(grid=10, sep=10)
             
             return self.models, self.counts
-        elif self.configuration == 'blockcraft':
+        
+        elif self.configuration['name'] == 'blockcraft':
             self.models = {}
             self.configure_test_cubes(grid=1, sep=0.2)
 
             return self.models, self.counts
+        
         else:
             raise ValueError(f'Unknown PlayState configuration: {self.configuration}')
+        
+    def configure_test_chunk(self, chunk_config):
+        if chunk_config == 'full':
+            chunk_model = np.eye(4, dtype=np.float32)
+            self.counts['chunks'] += 1
 
     def configure_test_teapots(self, grid, sep):
         teapots = []
@@ -269,6 +289,35 @@ class PlayState(GameState):
 
     def update(self, dt):
         self.handle_keys(dt)
+        self.update_light(dt)
+
+    def update_light(self, dt):
+        old_pos = np.array([
+            self.light['position'][0],
+            self.light['position'][1],
+            self.light['position'][2],
+            1.0
+        ], dtype=np.float32)
+
+        axis = self.light['axis'].copy()
+        angle = dt * self.light['rate']
+
+        c, s = np.cos(angle), np.sin(angle)
+
+        t = 1 - c
+
+        x, y, z = axis
+
+        matrix = np.array([
+            [c + x * x * t, x * y * t - z * s, x * z * t + y * s, 0.0],
+            [y * x * t + z * s, c + y * y * t, y * z * t - x * s, 0.0],
+            [z * x * t - y * s, z * y * t + x * s, c + z * z * t, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ], dtype=np.float32)
+
+        new_pos = matrix @ old_pos
+
+        self.light['position'] = new_pos
 
     def handle_keys(self, dt):
         if self.key_handler[key.ESCAPE]:

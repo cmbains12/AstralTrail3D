@@ -30,10 +30,8 @@ class Renderer:
             }, 'pyramid': {
                 'name': 'pyramid',
                 'count': 0,
-            }
+            },
         }
-        self.set_textures()
-
 
     def setup_object_buffer(self, model_name, mesh_matrix, norms_matrix, texture_matrix, instance_matrix, instance_count, tangent_matrix, bitangent_matrix):
         self.objects[model_name]['count'] = instance_count
@@ -303,12 +301,12 @@ class Renderer:
         gl.glEnable(gl.GL_DEPTH_TEST)
         gl.glEnable(gl.GL_CULL_FACE)
 
-    def load_texture_map(self, unit, file_name):
+    def load_texture_map(self, unit, texture_name, file_name):
         base_path = os.path.dirname(__file__)
-        full_path = os.path.join(base_path, '..', 'assets', 'textures', 'cobble', file_name)
-
+        full_path = os.path.join(base_path, '..', 'assets', 'textures', texture_name, file_name)
+        
         if not os.path.exists(full_path):
-            raise FileNotFoundError(f'Texture file not found: {full_path}')        
+            return None        
         
         texture = pyglet.image.load(full_path).get_texture()
 
@@ -321,18 +319,43 @@ class Renderer:
 
         return texture
     
-    def set_textures(self):
-        self.base_colour = self.load_texture_map(0, 'Wall_Stone_025_basecolor.png')
-        self.height = self.load_texture_map(1, 'Wall_Stone_025_height.png')
-        self.normal = self.load_texture_map(2, 'Wall_Stone_025_normal.png')
-        self.roughness = self.load_texture_map(3, 'Wall_Stone_025_roughness.png')
-        self.ambient_occlusion = self.load_texture_map(4, 'Wall_Stone_025_ambientOcclusion.png')
+    def set_textures(self, name):
+        if name == 'cobble':
+            self.base_colour = self.load_texture_map(0, name, 'Wall_Stone_025_basecolor.png')
+            self.height = self.load_texture_map(1, name, 'Wall_Stone_025_height.png')
+            self.normal = self.load_texture_map(2, name, 'Wall_Stone_025_normal.png')
+            self.roughness = self.load_texture_map(3, name, 'Wall_Stone_025_roughness.png')
+            self.ambient_occlusion = self.load_texture_map(4, name, '/Wall_Stone_025_ambientOcclusion.png')
+        elif name == 'cliffrock':
+            self.base_colour = self.load_texture_map(0, name, 'Stylized_Cliff_Rock_006_basecolor.png')
+            self.height = self.load_texture_map(1, name, 'Stylized_Cliff_Rock_006_height.png')
+            self.normal = self.load_texture_map(2, name, 'Stylized_Cliff_Rock_006_normal.png')
+            self.roughness = self.load_texture_map(3, name, 'Stylized_Cliff_Rock_006_roughness.png')
+            self.ambient_occlusion = self.load_texture_map(4, name, 'Stylized_Cliff_Rock_006_ambientOcclusion.png')
+        elif name == 'bark':
+            self.base_colour = self.load_texture_map(0, name, 'Bark_06_BaseColor.jpg')
+            self.height = self.load_texture_map(1, name, 'Bark_06_Height.png')
+            self.normal = self.load_texture_map(2, name, 'Bark_06_Normal.jpg')
+            self.roughness = self.load_texture_map(3, name, 'Bark_06_Roughness.jpg')
+            self.ambient_occlusion = self.load_texture_map(4, name, 'Bark_06_AmbientOcclusion.jpg')
+        elif name == 'rockmoss':
+            self.base_colour = self.load_texture_map(0, name, 'Rock_Moss_001_basecolor.jpg')
+            self.height = self.load_texture_map(1, name, 'Rock_Moss_001_height.png')
+            self.normal = self.load_texture_map(2, name, 'Rock_Moss_001_normal.jpg')
+            self.roughness = self.load_texture_map(3, name, 'Rock_Moss_001_roughness.jpg')
+            self.ambient_occlusion = self.load_texture_map(4, name, 'Rock_Moss_001_ambientOcclusion.jpg')
+        elif name == 'paintedmetal':
+            self.base_colour = self.load_texture_map(0, name, 'Metal_Painted_001_basecolor.jpg')
+            self.height = self.load_texture_map(1, name, 'Metal_Painted_001_height.png')
+            self.normal = self.load_texture_map(2, name, 'Metal_Painted_001_normal.jpg')
+            self.roughness = self.load_texture_map(3, name, 'Metal_Painted_001_roughness.jpg')
+            self.ambient_occlusion = self.load_texture_map(4, name, 'Metal_Painted_001_ambientOcclusion.jpg')
 
     def on_draw(self):
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
         gl.glUseProgram(self.render_program)
         self.update_view(self.window.play_state.camera)
-        self.update_light_direction(self.window.play_state.light_direction)
+        self.update_light_position(self.window.play_state.light['position'])
         self.update_texture()
         self.update_normal()
         self.update_height()
@@ -342,12 +365,6 @@ class Renderer:
 
         for model in self.objects.values():
             self.draw_object(model['name'], model['count'])
-
-    def update_tangents(self):
-        pass
-
-    def update_bitangents(self):
-        pass
 
     def update_texture(self):
         gl.glUseProgram(self.render_program)
@@ -378,12 +395,12 @@ class Renderer:
         gl.glUniform1i(tex_loc, 3)     
 
     def update_ao(self):
-        gl.glUseProgram(self.render_program)
-        gl.glActiveTexture(gl.GL_TEXTURE4)
-        gl.glBindTexture(gl.GL_TEXTURE_2D, self.ambient_occlusion.id)
-        tex_loc = gl.glGetUniformLocation(self.render_program, b'aoMap')
-        gl.glUniform1i(tex_loc, 4)        
-
+        if self.ambient_occlusion is not None:
+            gl.glUseProgram(self.render_program)
+            gl.glActiveTexture(gl.GL_TEXTURE4)
+            gl.glBindTexture(gl.GL_TEXTURE_2D, self.ambient_occlusion.id)
+            tex_loc = gl.glGetUniformLocation(self.render_program, b'aoMap')
+            gl.glUniform1i(tex_loc, 4)        
 
     def update_view(self, camera):
         gl.glUseProgram(self.render_program)
@@ -409,15 +426,15 @@ class Renderer:
             camera.proj.T.flatten().ctypes.data_as(ct.POINTER(ct.c_float))
         )
 
-    def update_light_direction(self, light_direction):
+    def update_light_position(self, light_position):
         gl.glUseProgram(self.render_program)
 
-        light_loc = gl.glGetUniformLocation(self.render_program, b'lightDir')
+        light_loc = gl.glGetUniformLocation(self.render_program, b'lightPos')
 
         gl.glUniform3fv(
             light_loc,
             1,
-            light_direction.ctypes.data_as(ct.POINTER(ct.c_float))
+            light_position.ctypes.data_as(ct.POINTER(ct.c_float))
         )
 
     def update_view_position(self, view_pos):

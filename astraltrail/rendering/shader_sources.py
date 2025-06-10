@@ -49,7 +49,7 @@ class ShaderSources:
     in mat3 TBN;
     in vec3 fragPos;
 
-    uniform vec3 lightDir;
+    uniform vec3 lightPos;
     uniform vec3 viewPos;
 
     uniform sampler2D textureSampler;
@@ -61,17 +61,32 @@ class ShaderSources:
     out vec4 fragColour;
 
     void main() {
-        vec3 normalMapSample = texture(normalMap, texCoord).rgb;
+        float normalStrength = 1.0;
+        float roughnessStrength = 1.0;
+        float occlusionStrength = 1.0;
+        vec3 light = normalize(lightPos - fragPos);
+        vec3 viewDirTS = normalize(TBN * (viewPos - fragPos));
+        float height = texture(heightMap, texCoord).r;
+
+        float viewAngle = clamp(viewDirTS.z, 0.2, 1.0);
+        float fade = smoothstep(0.2, 0.5, viewDirTS.z);
+
+        float heightScale = 0.02;
+        vec2 parallaxOffset = viewDirTS.xy * (height * heightScale * fade);
+
+        vec2 parallaxTexCoord = texCoord - parallaxOffset;
+        parallaxTexCoord = clamp(parallaxTexCoord, 0.0, 1.0);
+
+        vec3 normalMapSample = texture(normalMap, parallaxTexCoord).rgb;
         vec3 tangentNorm = normalMapSample * 2.0 - 1.0;
 
-        vec3 normal = normalize(TBN * tangentNorm);
-        //vec3 normal = normalize(TBN * (texture(normalMap, texCoord).rgb * 2.0 - 1.0));
-        //vec3 normal = normalize(fragNormal);
+        vec3 exaggeratedNormal = normalize(mix(vec3(0.0, 0.0, 1.0), tangentNorm, normalStrength));
 
-        vec3 light = normalize(-lightDir);
+        vec3 normal = normalize(TBN * exaggeratedNormal);
+
         vec3 viewDir = normalize(viewPos - fragPos);
 
-        float ao = texture(aoMap, texCoord).r;
+        float ao = pow(texture(aoMap, parallaxTexCoord).r, occlusionStrength);
         
         float diff = max(dot(normal, light), 0.0);
 
@@ -79,12 +94,14 @@ class ShaderSources:
 
         float spec = pow(max(dot(normal, half), 0.0), 32.0);
 
-        float roughness = texture(roughnessMap, texCoord).r;
+        float roughness = clamp(texture(roughnessMap, parallaxTexCoord).r * roughnessStrength, 0.0, 1.0);
         spec *= 1.0 - roughness;
 
-        vec3 base = texture(textureSampler, texCoord).rgb;
+        vec3 base = texture(textureSampler, parallaxTexCoord).rgb;
+        base = pow(base, vec3(0.8));
+        base *= 1.2;
 
-        float ambi = 0.2;
+        float ambi = 0.1;
 
         vec3 final = (ambi * ao) * base + diff * base + spec * vec3(1.0);
 
