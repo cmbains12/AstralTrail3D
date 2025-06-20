@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astralengine"
+version = "0.0.1"
+description = "A voxel simulation game engine and experimental AI sandbox"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Cameron Bains", email = "cameronenginebytes@gmail.com" }
+]
+dependencies = [
+  "pyglet>=2.1.6",
+  "numpy>=1.24",
+  "ctypes; python_version >= '3.0'",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
