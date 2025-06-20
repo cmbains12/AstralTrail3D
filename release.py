@@ -125,8 +125,10 @@ def main():
 
     bump_version(tag)
 
+    insert_changelog_entry(version)
+
     insert_changelog_entry(version, added, changed, fixed)
-    
+
     print('\n[RELEASE] What do you want to do with these changes?')
     print('1. Commit them immediately')
     print('2. Stage only (for later commit)')
