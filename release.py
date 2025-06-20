@@ -11,6 +11,7 @@ VERSION_FILES = ['pyproject.toml', CHANGELOG_PATH]
 parser = argparse.ArgumentParser()
 parser.add_argument('--tag', type=str, help='Optional version tag (e.g., alpha, beta)')
 parser.add_argument('--dry-run', action='store_true', help='Preview changes without modifying files')
+parser.add_argument('--force-insert', action='store_true', help='Force changelog entry insertion even if entry exists')
 args = parser.parse_args()
 
 tag = args.tag
