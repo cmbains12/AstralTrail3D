@@ -87,8 +87,9 @@ def insert_changelog_entry(version):
 def get_version():
     with open("pyproject.toml", encoding="utf-8") as f:
         for line in f:
-            if line.startswith("current_version"):
-                return line.split("=")[1].strip().strip('"')
+            if line.strip().startswith("current_version"):
+                version = line.split("=")[1].split("#")[0].strip().strip('"')
+                return version
     raise RuntimeError("Version not found in pyproject.toml")
 
 def main():
