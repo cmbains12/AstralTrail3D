@@ -1,11 +1,7 @@
-
-
 [bumpver]
+current_version = "2025.1002-dev"
 version_pattern = "YYYY.BUILD[-TAG]"
-current_version = "2025.1001-dev"
-commit = true
-tag = true
-push = false
+...
 
 [bumpver.file_patterns]
 "pyproject.toml" = [
