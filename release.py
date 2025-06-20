@@ -99,7 +99,7 @@ def main():
 
     tag = input('Optional tag (alpha, beta, rc) or leave blank: ').strip() or None
 
-    next_version_cmd = ['bumpvar', 'show', '--next']
+    next_version_cmd = ['bumpver', 'show', '--next']
 
     if tag: 
         next_version_cmd += ['--tag', tag]
