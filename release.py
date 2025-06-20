@@ -74,6 +74,14 @@ def get_new_version():
 def insert_changelog_entry(version, added, changed, fixed):
     today = datetime.date.today().isoformat()
     
+    # Prevent duplicate version entries
+    with open(CHANGELOG_PATH, 'r', encoding='utf-8') as f:
+        content = f.read()
+        if f'## [{version}]' in content and not args.force_insert:
+            print(f'[RELEASE] Changelog already contains version {version}. Use --force-insert to override.')
+            return
+        
+    
     entry = f'\n## [{version}] - {today} <!-- {{bumpver}} -->\n'
 
     if added:
