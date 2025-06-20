@@ -136,15 +136,15 @@ def main():
         sys.exit(1)
 
     current_version = get_new_version()
-    version = compute_next_version(current_version, tag)
-    print(f'\n[RELEASE] Next Version: {version}')
+    next_version = compute_next_version(current_version, tag)
+    print(f'\n[RELEASE] Next Version: {next_version}')
 
     commits = get_commits_since_last_tag()
     added, changed, fixed = categorize_commits(commits)
 
     if dry_run:
         print('\n[DRY-RUN] Changelog preview:')
-        print(f'\n## [{version}] - {datetime.date.today().isoformat()} <!-- {{bumpver}} -->')
+        print(f'\n## [{next_version}] - {datetime.date.today().isoformat()} <!-- {{bumpver}} -->')
         if added:
             print('\n### Added\n' + '\n'.join(f'- {a}' for a in added))
         if changed:
@@ -153,14 +153,14 @@ def main():
             print('\n### Fixed\n' + '\n'.join(f'- {f}' for f in fixed))
         print('\n[DRY-RUN] Skipping changelog write and git operations.')
         return
-    confirm = input(f'[RELEASE] Bump version to {version}? [y/N]: ').strip().lower()
+    confirm = input(f'[RELEASE] Bump version to {next_version}? [y/N]: ').strip().lower()
     if confirm not in ('y', 'yes'):
         print('[RELEASE] Version bump cancelled by user.')
         sys.exit(0)    
     bump_version(tag)
-    version = get_new_version()  # Refresh with actual bumped version
+    final_version = get_new_version()
 
-    insert_changelog_entry(version, added, changed, fixed)
+    insert_changelog_entry(final_version, added, changed, fixed)
     subprocess.run(['git', '--no-pager', 'diff', '--staged'])
 
     print('\n[RELEASE] What do you want to do with these changes?')
@@ -170,14 +170,14 @@ def main():
 
     choice = input('Enter choice [1/2/3]: ').strip()
 
-    if git_tag_exists(version):
-        print(f"[ERROR] Version {version} is already tagged.")
+    if git_tag_exists(final_version):
+        print(f"[ERROR] Version {final_version} is already tagged.")
         sys.exit(1)
 
 
     if choice == '1':
-        commit_changes(version)
-        tag_release(version)
+        commit_changes(final_version)
+        tag_release(final_version)
     elif choice == '2':
         stage_changes()
         print('[RELEASE] You can now commit manually when ready.')
@@ -186,7 +186,7 @@ def main():
     else:
         print('[RELEASE] Invalid choice. Exiting...')
 
-    print(f'[RELEASE] Version {version} workflow complete.')
+    print(f'[RELEASE] Version {final_version} workflow complete.')
 
 
 if __name__ == '__main__':
