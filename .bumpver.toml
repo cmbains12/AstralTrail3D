@@ -6,6 +6,3 @@ version_pattern = "YYYY.BUILD[-TAG]"
 "pyproject.toml" = [
     'version = "{version}"'
 ]
-"CHANGELOG.md" = [
-    '^## \[{version}\] - \d{4}-\d{2}-\d{2} <!-- {bumpver} -->$'
-]
