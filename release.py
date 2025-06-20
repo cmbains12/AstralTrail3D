@@ -95,8 +95,10 @@ def commit_changes(version):
 
 def tag_release(version):
     print(f'[RELEASE] Tagging release version{version}...')
-    subprocess.run(['git', 'tag', f'v{version}'], check=True)
-    
+    try:
+        subprocess.run(['git', 'tag', f'v{version}'], check=True)
+    except subprocess.CalledProcessError:
+        print(f'[WARNING] Tag v{version} already exists. Skipping tag creation.')
 
 def main():
     print('=== Astral Engine Release Script ===')
