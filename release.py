@@ -3,10 +3,18 @@ import datetime
 import sys
 import re
 import toml
+import argparse
 
 CHANGELOG_PATH = 'CHANGELOG.md'
 VERSION_FILES = ['pyproject.toml', CHANGELOG_PATH]
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--tag', type=str, help='Optional version tag (e.g., alpha, beta)')
+parser.add_argument('--dry-run', action='store_true', help='Preview changes without modifying files')
+args = parser.parse_args()
+
+tag = args.tag
+dry_run = args.dry_run
 
 def get_commits_since_last_tag():
     try:
@@ -57,7 +65,10 @@ def get_new_version():
     try:
         return data['project']['version']
     except KeyError:
-        raise RuntimeError('Version not found in [project] section of pyproject.toml')
+        try:
+            return data['tool']['poetry']['version']
+        except KeyError:
+            raise RuntimeError('Version not found in pyproject.toml')
 
 
 def insert_changelog_entry(version, added, changed, fixed):
@@ -100,11 +111,20 @@ def tag_release(version):
     except subprocess.CalledProcessError:
         print(f'[WARNING] Tag v{version} already exists. Skipping tag creation.')
 
+def git_tag_exists(version):
+    tags = subprocess.check_output(['git', 'tag'], encoding='utf-8').splitlines()
+    return f'v{version}' in tags
+
 def main():
     print('=== Astral Engine Release Script ===')
+    
+    def git_is_clean():
+        result = subprocess.run(['git', 'status', '--porcelain'], stdout=subprocess.PIPE, text=True)
+        return result.stdout.strip() == ''
 
-    dry_run = '--dry-run' in sys.argv
-    tag = input('Optional tag (alpha, beta, rc) or leave blank: ').strip() or None
+    if not git_is_clean():
+        print("[ERROR] Git working directory is not clean. Commit or stash changes before releasing.")
+        sys.exit(1)
 
     current_version = get_new_version()
     version = compute_next_version(current_version, tag)
@@ -124,10 +144,15 @@ def main():
             print('\n### Fixed\n' + '\n'.join(f'- {f}' for f in fixed))
         print('\n[DRY-RUN] Skipping changelog write and git operations.')
         return
-
+    confirm = input(f'[RELEASE] Bump version to {version}? [y/N]: ').strip().lower()
+    if confirm not in ('y', 'yes'):
+        print('[RELEASE] Version bump cancelled by user.')
+        sys.exit(0)    
     bump_version(tag)
+    version = get_new_version()  # Refresh with actual bumped version
 
     insert_changelog_entry(version, added, changed, fixed)
+    subprocess.run(['git', '--no-pager', 'diff', '--staged'])
 
     print('\n[RELEASE] What do you want to do with these changes?')
     print('1. Commit them immediately')
@@ -135,6 +160,11 @@ def main():
     print('3. Do nothing')
 
     choice = input('Enter choice [1/2/3]: ').strip()
+
+    if git_tag_exists(version):
+        print(f"[ERROR] Version {version} is already tagged.")
+        sys.exit(1)
+
 
     if choice == '1':
         commit_changes(version)

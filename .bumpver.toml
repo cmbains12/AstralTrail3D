@@ -1,5 +1,5 @@
 [bumpver]
-current_version = "2025.1003-dev"
+current_version = "2025.1004-dev"
 version_pattern = "YYYY.BUILD[-TAG]"
 
 [[file_patterns]]
