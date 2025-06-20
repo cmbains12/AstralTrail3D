@@ -1,6 +1,7 @@
-version_pattern = "YYYY.BUILD[-TAG]"
+
 
 [bumpver]
+version_pattern = "YYYY.BUILD[-TAG]"
 current_version = "2025.1001-dev"
 commit = true
 tag = true
