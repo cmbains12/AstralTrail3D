@@ -44,6 +44,12 @@ def bump_version(tag: str = None):
         cmd += ['--tag', tag]
     subprocess.run(cmd, check=True)
 
+def compute_next_version(current_version: str, tag: str = None):
+    base = current_version.split('-')[0]
+    year, build = base.split('.')
+    build = int(build) + 1
+    tag_suffix = f'-{tag}' if tag else ''
+    return f"{year}.{build:04d}{tag_suffix}"
 
 def get_new_version():
     with open('pyproject.toml', 'r') as f:
@@ -96,23 +102,15 @@ def main():
     print('=== Astral Engine Release Script ===')
 
     dry_run = '--dry-run' in sys.argv
-
     tag = input('Optional tag (alpha, beta, rc) or leave blank: ').strip() or None
 
-    next_version_cmd = ['bumpver', 'show', '--next']
-
-    if tag: 
-        next_version_cmd += ['--tag', tag]
-
-    next_version = subprocess.check_output(next_version_cmd, encoding='utf-8').strip()
-
-    version = next_version
+    current_version = get_new_version()
+    version = compute_next_version(current_version, tag)
     print(f'\n[RELEASE] Next Version: {version}')
 
     commits = get_commits_since_last_tag()
     added, changed, fixed = categorize_commits(commits)
     
-
     if dry_run:
         print('\n[DRY-RUN] Changelog preview:')
         print(f'\n## [{version}] - {datetime.date.today().isoformat()} <!-- {{bumpver}} -->')
