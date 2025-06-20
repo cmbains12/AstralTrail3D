@@ -110,7 +110,7 @@ def main():
 
     commits = get_commits_since_last_tag()
     added, changed, fixed = categorize_commits(commits)
-    
+
     if dry_run:
         print('\n[DRY-RUN] Changelog preview:')
         print(f'\n## [{version}] - {datetime.date.today().isoformat()} <!-- {{bumpver}} -->')
@@ -122,11 +122,11 @@ def main():
             print('\n### Fixed\n' + '\n'.join(f'- {f}' for f in fixed))
         print('\n[DRY-RUN] Skipping changelog write and git operations.')
         return
-    
-    insert_changelog_entry(version, added, changed, fixed)
 
     bump_version(tag)
 
+    insert_changelog_entry(version, added, changed, fixed)
+    
     print('\n[RELEASE] What do you want to do with these changes?')
     print('1. Commit them immediately')
     print('2. Stage only (for later commit)')

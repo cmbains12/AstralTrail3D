@@ -7,6 +7,26 @@
 - debugging attempt
 - debugging attempt
 - debugging attempt
+- debugging attempt
+- debugging
+- refactor[project] moving project files around
+- release: prepare version bump with multiple changes
+- • chore(lfs): track binary assets using Git LFS
+- • feat(cli): support legacy monolith via CLI flag
+- • feat(release): implement automatic versioning and changelog generation
+- • chore(pyproject): update version metadata for release
+### Fixed
+- fixed: more debugging
+- fixed: more debugging
+- fix: correcting bumbver changlog pattern
+## [2025.1003-dev] - 2025-06-20 
+
+### Added
+- • feat(core): add centralized entry points routed through bootstrap script
+### Changed
+- debugging attempt
+- debugging attempt
+- debugging attempt
 - debugging
 - refactor[project] moving project files around
 - release: prepare version bump with multiple changes
