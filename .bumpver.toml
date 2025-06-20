@@ -2,10 +2,6 @@
 current_version = "2025.1001-dev"
 version_pattern = "YYYY.BUILD[-TAG]"
 
-[bumpver.file_patterns]
-"pyproject.toml" = [
-    'version = "{version}"'
-]
-"CHANGELOG.md" = [
-    '^## \\[{version}\\] - \\d{4}-\\d{2}-\\d{2} <!-- \\{bumpver\\} -->'
-]
+[[file_patterns]]
+file = "CHANGELOG.md"
+search = '^## \[{version}\] - \d{4}-\d{2}-\d{2} <!-- {bumpver} -->'
