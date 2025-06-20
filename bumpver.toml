@@ -15,5 +15,5 @@ push = false
     'version = "{version}"'
 ]
 "CHANGELOG.md" = [
-    '^## [{version}] - {timestamp} <!-- {bumpver} -->$'
+    '^## [{version}] - \d(4)-\d(2)-\d(2) <!-- {bumpver} -->$'
 ]
