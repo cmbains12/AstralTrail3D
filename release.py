@@ -87,6 +87,10 @@ def commit_changes(version):
     print('[RELEASE] Committing version and changelog updates...')
     subprocess.run(['git', 'commit', '-m', f'release: version {version}'], check=True)
 
+def tag_release(version):
+    print(f'[RELEASE] Tagging release version{version}...')
+    subprocess.run(['git', 'tag', f'v{version}'], check=True)
+    
 
 def main():
     print('=== Astral Engine Release Script ===')
@@ -95,16 +99,19 @@ def main():
 
     tag = input('Optional tag (alpha, beta, rc) or leave blank: ').strip() or None
 
-    if dry_run:
-        print(f'[DRY-RUN] Would call: bumpver update{" --tag " + tag if tag else ""}')
-    else:
-        bump_version(tag)
+    next_version_cmd = ['bumpvar', 'show', '--next']
 
-    version = get_new_version()
-    print(f'\n[RELEASE] Version: {version}')
+    if tag: 
+        next_version_cmd += ['--tag', tag]
+
+    next_version = subprocess.check_output(next_version_cmd, encoding='utf-8').strip()
+
+    version = next_version
+    print(f'\n[RELEASE] Next Version: {version}')
 
     commits = get_commits_since_last_tag()
     added, changed, fixed = categorize_commits(commits)
+    
 
     if dry_run:
         print('\n[DRY-RUN] Changelog preview:')
@@ -117,8 +124,10 @@ def main():
             print('\n### Fixed\n' + '\n'.join(f'- {f}' for f in fixed))
         print('\n[DRY-RUN] Skipping changelog write and git operations.')
         return
-
+    
     insert_changelog_entry(version, added, changed, fixed)
+
+    bump_version(tag)
 
     print('\n[RELEASE] What do you want to do with these changes?')
     print('1. Commit them immediately')
@@ -129,6 +138,7 @@ def main():
 
     if choice == '1':
         commit_changes(version)
+        tag_release(version)
     elif choice == '2':
         stage_changes()
         print('[RELEASE] You can now commit manually when ready.')
