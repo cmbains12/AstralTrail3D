@@ -1,6 +1,13 @@
 
 ## [2025.1003-dev] - 2025-06-20 <!-- {bumpver} -->
 
+### Changed
+- release: version 2025.1003-dev
+### Fixed
+- fixed: more debugging
+- fixed: more debugging
+## [2025.1003-dev] - 2025-06-20 
+
 ### Fixed
 - fixed: more debugging
 ## [2025.1003-dev] - 2025-06-20 
