@@ -1,6 +1,10 @@
 
 ## [2025.1003-dev] - 2025-06-20 <!-- {bumpver} -->
 
+### Fixed
+- fixed: more debugging
+## [2025.1003-dev] - 2025-06-20 
+
 ### Added
 - • feat(core): add centralized entry points routed through bootstrap script
 ### Changed
