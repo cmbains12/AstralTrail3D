@@ -5,4 +5,4 @@
 - Bootstrapping system with multiple entry modes (`sandbox`, `legacy`)
 - `pyproject.toml` with packaging metadata and dev tool config
 - Legacy monolith isolated under `legacy/`
-- Initial documentation and long-form design articles under `/docs`ct will be documented here.
+- Initial documentation and long-form design articles under `/docs/`
