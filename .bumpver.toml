@@ -7,7 +7,7 @@ version_pattern = "YYYY.BUILD[-TAG]"
     'version = "{version}"'
 ]
 "CHANGELOG.md" = [
-    '## [{version}] - {date} <!-- {bumpver} -->'
+    '^## \\[{version}\\] - \\d{4}-\\d{2}-\\d{2} <!-- \\{bumpver\\} -->$'
 ]
 
 
