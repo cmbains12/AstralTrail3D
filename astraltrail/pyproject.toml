@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "astralengine"
-version = "0.0.1"
+version = "0.0.1" # {bumpver}
 description = "A voxel simulation game engine and experimental AI sandbox"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -15,7 +15,13 @@ authors = [
 dependencies = [
   "pyglet>=2.1.6",
   "numpy>=1.24",
-  "ctypes; python_version >= '3.0'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "isort",
+    "pytest"
 ]
 
 [tool.black]
