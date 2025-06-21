@@ -43,7 +43,7 @@ def update_pyproject_version(new_version, dry_run=False):
     """Updates version in pyproject.toml to match the new version (including hotfix/dev suffix)."""
     content = Path(PYPROJECT_PATH).read_text(encoding="utf-8")
     new_content = re.sub(
-        r'version\s*=\s*"[\d\.]+(?:-[\w]+)*(?:-[\w]+)?"',
+        r'version\s*=\s*"[^"]+"',
         f'version = \"{new_version}\"',
         content
     )
