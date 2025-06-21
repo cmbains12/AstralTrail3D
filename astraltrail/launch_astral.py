@@ -2,9 +2,10 @@ import argparse
 import sys
 import os
 
-src_path = os.path.join(os.path.dirname(__file__), 'src')
-if src_path not in sys.path:
-    sys.path.insert(0, src_path)
+project_root = os.path.dirname(__file__)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 
 from src.engine.bootstrap import bootstrap_engine
 

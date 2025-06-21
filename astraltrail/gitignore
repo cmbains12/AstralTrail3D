@@ -48,3 +48,5 @@ site/
 
 assets/textures/*
 !assets/textures/README.md
+
+*.egg-info/

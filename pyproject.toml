@@ -9,3 +9,6 @@ description = "Test"
 
 [tool.black]
 line-length = 100
+
+[project.scripts]
+astral = "astraltrail.launch_astral:main"
