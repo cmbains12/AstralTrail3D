@@ -26,8 +26,9 @@ def get_current_version():
 def compute_next_version(current_version, patch=False, tag=None):
     base, *old_tag = current_version.split("-")
     year, build = base.split(".")
-    new_build = int(build) + 1 if patch or not old_tag else int(build)
-    suffix = tag or old_tag[0] if old_tag else ""
+    new_build = int(build) + 1 if patch or tag else int(build)
+
+    suffix = tag or (old_tag[0] if old_tag else "")
     return f"{year}.{new_build}-{suffix}" if suffix else f"{year}.{new_build}"
 
 def classify_commits(commits):
@@ -129,7 +130,7 @@ def main():
             next_version = f"{current_version}-hotfix"
         changelog_version = next_version
     else:
-        next_version = compute_next_version(current_version, patch=patch, tag=tag)
+        next_version = compute_next_version(current_version, patch=patch or bool(tag), tag=tag)
         changelog_version = next_version
 
     print("\n======================")
