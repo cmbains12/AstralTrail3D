@@ -17,7 +17,8 @@ def parse_args():
 def get_current_version():
     with open(PYPROJECT_PATH, encoding="utf-8") as f:
         for line in f:
-            if "version" in line and "# {bumpver}" in line:
+            if line.strip().startswith("version"):
+
                 return line.split("=")[1].split("#")[0].strip().strip('"')
     raise RuntimeError("version not found in pyproject.toml")
 
@@ -43,13 +44,24 @@ def update_versions(new_version, dry_run=False):
     update_file(PYPROJECT_PATH, pyproject_pattern, f'version = "{new_version}"  # {{bumpver}}', dry_run)
     update_file(BUMPVER_PATH, bumpver_pattern, f'current_version = "{new_version}"', dry_run)
 
-def get_commits_since_last_tag():
-    try:
-        last_tag = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], encoding="utf-8").strip()
-        range_spec = f"{last_tag}..HEAD"
-    except subprocess.CalledProcessError:
-        range_spec = "HEAD"
-    commits = subprocess.check_output(["git", "log", range_spec, "--pretty=format:%s"], encoding="utf-8")
+def get_last_version_from_changelog():
+    with open(CHANGELOG_PATH, encoding="utf-8") as f:
+        for line in f:
+            match = re.match(r'^## \[(\d{4}\.\d+)(?:-[\w]+)?\] - \d{4}-\d{2}-\d{2}', line)
+            if match:
+                return match.group(1)
+    return None  # No previous version found
+
+def get_commits_since_last_release():
+    last_version = get_last_version_from_changelog()
+    if last_version:
+        try:
+            range_spec = f"{last_version}..HEAD"
+            commits = subprocess.check_output(["git", "log", range_spec, "--pretty=format:%s"], encoding="utf-8")
+        except subprocess.CalledProcessError:
+            commits = subprocess.check_output(["git", "log", "HEAD", "--pretty=format:%s"], encoding="utf-8")
+    else:
+        commits = subprocess.check_output(["git", "log", "HEAD", "--pretty=format:%s"], encoding="utf-8")
     return commits.strip().split("\n")
 
 def classify_commits(commits):
@@ -99,7 +111,7 @@ def main():
 
     update_versions(next_version, dry_run=args.dry_run)
 
-    commits = get_commits_since_last_tag()
+    commits = get_commits_since_last_release()
     added, changed, fixed, other = classify_commits(commits)
 
     block = format_changelog(next_version, added, changed, fixed, other)
