@@ -96,12 +96,26 @@ def git_commit_and_tag(version, dry_run=False, no_tag=False):
     if dry_run:
         print(f"[DRY-RUN] Would commit and tag version {version}")
         return
+
     subprocess.run(["git", "add", "pyproject.toml", "CHANGELOG.md"], check=True)
     subprocess.run(["git", "commit", "-m", f"release: v{version}"], check=True)
-    if not no_tag:
-        tag = f"v{version}"
-        subprocess.run(["git", "tag", tag], check=True)
-        print(f"[release] Created Git tag {tag}")
+
+    if no_tag:
+        print("[release] Skipping Git tag creation due to --no-tag flag.")
+        return
+
+    tag = f"v{version}"
+    result = subprocess.run(["git", "tag", "-l", tag], capture_output=True, text=True)
+
+    if tag in result.stdout:
+        response = input(f"[release] Tag '{tag}' already exists. Overwrite? [y/N]: ").strip().lower()
+        if response != 'y':
+            print("[release] Skipping tag creation.")
+            return
+        subprocess.run(["git", "tag", "-d", tag], check=True)
+
+    subprocess.run(["git", "tag", tag], check=True)
+    print(f"[release] Created Git tag {tag}")
 
 def main():
     args = parse_args()
