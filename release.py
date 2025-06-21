@@ -20,7 +20,13 @@ def bump_version(tag=None, dry_run=False):
         cmd += ["--tag", tag]
     if dry_run:
         cmd.append("--dry")
-    subprocess.run(cmd, check=True)
+
+    # capture stdout so we can parse the new version
+    result = subprocess.run(cmd, capture_output=True, encoding="utf-8", check=True)
+    match = re.search(r"New Version: ([\w\.-]+)", result.stdout)
+    if not match:
+        raise RuntimeError("Failed to parse new version from bumpver output")
+    return match.group(1)
 
 def get_version():
     data = toml.load(PYPROJECT_PATH)
