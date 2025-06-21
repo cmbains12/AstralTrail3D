@@ -2,11 +2,9 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[bumpver]
-current_version = "2025.1001-dev" # {bumpver}
-
 [project]
 name = "astralengine"
+current_version = "2025.1001-dev" # {bumpver}
 description = "A voxel simulation game engine and experimental AI sandbox"
 readme = "README.md"
 requires-python = ">=3.11"
