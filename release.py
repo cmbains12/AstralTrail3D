@@ -16,9 +16,10 @@ def parse_args():
 def get_current_version():
     with open(PYPROJECT_PATH, encoding="utf-8") as f:
         for line in f:
-            if "current_version" in line and "# {bumpver}" in line:
+            if "version" in line and "# {bumpver}" in line:
                 return line.split("=")[1].split("#")[0].strip().strip('"')
-    raise RuntimeError("current_version not found in pyproject.toml")
+    raise RuntimeError("version not found in pyproject.toml")
+
 
 def compute_next_version(current_version, hotfix=False):
     year, rest = current_version.split(".")
