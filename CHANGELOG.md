@@ -1,11 +1,8 @@
-
 ## [2025.1001-dev-hotfix] - 2025-06-21
 
 #### Hotfix patch (2025-06-21)
 ### Other
 - meta - debugging version changes
-- meta - debugging version changes
-
 
 ## [2025.1001-dev] - 2025-06-20
 ### Added
