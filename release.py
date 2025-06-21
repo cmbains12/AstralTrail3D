@@ -31,7 +31,7 @@ def compute_next_version(current_version, hotfix=False):
     return f"{year}.{new_build}-{tag}"
 
 def bump_version(new_version, dry_run=False):
-    cmd = ["bumpver", "update", "--new-version", new_version]
+    cmd = ["bumpver", "update", "--set-version", new_version]
     if dry_run:
         cmd.append("--dry")
     subprocess.run(cmd, check=True)
