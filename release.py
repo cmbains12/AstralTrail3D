@@ -37,12 +37,9 @@ def update_file(path, pattern, replacement, dry_run=False):
     else:
         Path(path).write_text(new_content, encoding="utf-8")
 
-def update_versions(new_version, dry_run=False):
-    pyproject_pattern = r'version\s*=\s*".*?"\s*#\s*{bumpver}'
-    bumpver_pattern = r'current_version\s*=\s*".*?"'
-
-    update_file(PYPROJECT_PATH, pyproject_pattern, f'version = "{new_version}"  # {{bumpver}}', dry_run)
-    update_file(BUMPVER_PATH, bumpver_pattern, f'current_version = "{new_version}"', dry_run)
+def bump_version(new_version, dry_run=False):
+    update_pyproject_version(new_version, dry_run)
+    return new_version
 
 def get_last_version_from_changelog():
     with open(CHANGELOG_PATH, encoding="utf-8") as f:
@@ -102,6 +99,21 @@ def insert_changelog_entry(version, block, dry_run=False):
         changelog.write_text(new_content, encoding="utf-8")
         print(f"[release] Changelog updated with version {version}")
 
+def update_pyproject_version(new_version, dry_run=False):
+    content = Path(PYPROJECT_PATH).read_text(encoding="utf-8")
+    new_content = re.sub(
+        r'version\s*=\s*"[\d\.]+-[\w]+"',
+        f'version = "{new_version}"',
+        content
+    )
+
+    if dry_run:
+        print("==== DRY RUN ====\n")
+        print("[release] Would update pyproject.toml version to:", new_version)
+    else:
+        Path(PYPROJECT_PATH).write_text(new_content, encoding="utf-8")
+        print(f"[release] pyproject.toml updated to version {new_version}")        
+
 def main():
     args = parse_args()
 
@@ -109,7 +121,7 @@ def main():
     next_version = compute_next_version(current, args.hotfix)
     print(f"[release] Bumping from {current} → {next_version}")
 
-    update_versions(next_version, dry_run=args.dry_run)
+    bump_version(next_version, dry_run=args.dry_run)
 
     commits = get_commits_since_last_release()
     added, changed, fixed, other = classify_commits(commits)
