@@ -119,13 +119,18 @@ def git_commit_and_tag(version, dry_run=False):
         print(f"[dry-run] Would commit and tag version {version}")
         return
 
-    subprocess.run(["git", "add", "."], check=True)
-
+    subprocess.run(["git", "add", "pyproject.toml", "CHANGELOG.md"], check=True)
     subprocess.run(["git", "commit", "-m", f"release: v{version}"], check=True)
 
-    subprocess.run(["git", "tag", f"v{version}"], check=True)
+    tag = f"v{version}"
 
-    print(f"[release] Created commit and tag v{version}")
+    result = subprocess.run(["git", "tag", "-l", tag], capture_output=True, text=True)
+    if tag in result.stdout:
+        print(f"[release] Tag {tag} already exists, deleting...")
+        subprocess.run(["git", "tag", "-d", tag], check=True)
+
+    subprocess.run(["git", "tag", tag], check=True)
+    print(f"[release] Created commit and tag {tag}")
 
 def main():
     args = parse_args()
