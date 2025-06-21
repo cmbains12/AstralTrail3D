@@ -1,6 +1,12 @@
 
+## [2025.1002-dev] - 2025-06-20
 
-## [2025.1001-dev] - 2025-06-20 <!-- {bumpver} -->
+### Other
+- fixed: debugging the release system
+
+
+
+## [2025.1001-dev] - 2025-06-20
 ### Added
 - Project structure refactored to modular layout under `src/`
 - Bootstrapping system with multiple entry modes (`sandbox`, `legacy`)
