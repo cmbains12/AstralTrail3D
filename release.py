@@ -112,16 +112,15 @@ def main():
     current_version = get_current_version()
 
     if hotfix:
-        next_version = current_version
-        # Avoid duplicating "-hotfix"
         if current_version.endswith("-hotfix"):
-            changelog_version = current_version
+            next_version = current_version
         else:
-            changelog_version = f"{current_version}-hotfix"
+            next_version = f"{current_version}-hotfix"
+
+        changelog_version = next_version
     else:
         next_version = compute_next_version(current_version, patch=patch, tag=tag)
         changelog_version = next_version
-
 
     print("======================")
     print(f"{'[DRY-RUN]' if dry else '[release]'} Preparing Release")
