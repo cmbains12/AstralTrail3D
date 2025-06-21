@@ -11,8 +11,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Preview changes without modifying files")
     parser.add_argument("--hotfix", action="store_true", help="Tag a hotfix (does not increment version)")
-    parser.add_argument("--patch", action="store_true", help="Tag a patch release (increments version)")
+    parser.add_argument("--patch", action="store_true", help="Optional patch bump (overrides default)")
     parser.add_argument("--tag", type=str, help="Optional version tag (e.g., dev, beta, stable)")
+    parser.add_argument("--no-tag", action="store_true", help="Skip Git tagging")
     return parser.parse_args()
 
 def get_current_version():
@@ -22,18 +23,19 @@ def get_current_version():
                 return line.split("=")[1].split("#")[0].strip().strip('"')
     raise RuntimeError("version not found in pyproject.toml")
 
-def compute_next_version(current_version, patch=False):
-    year, rest = current_version.split(".")
-    build_tag = rest.split("-")[0]
-    tag = rest.split("-")[1] if '-' in rest else ""
-    build = int(build_tag)
-    new_build = build + 1 if patch else build
-    return f"{year}.{new_build}" if not tag else f"{year}.{new_build}-{tag}"
+def compute_next_version(current_version, patch=True, hotfix=False, tag=None):
+    base_version = current_version.split("-")[0]
+    current_tag = current_version[len(base_version):].lstrip("-")
+    year, build = base_version.split(".")
+    if patch and not hotfix:
+        build = str(int(build) + 1)
+    next_version = f"{year}.{build}"
 
-def prompt_for_tag(dry_run=False):
-    prefix = "[DRY-RUN] " if dry_run else ""
-    tag = input(f"{prefix}Enter version tag (e.g., dev, beta, stable): ").strip()
-    return tag if tag else "dev"
+    if tag and tag != current_tag:
+        next_version += f"-{tag}"
+    elif current_tag:
+        next_version += f"-{current_tag}"
+    return next_version
 
 def update_pyproject_version(new_version, dry_run=False):
     content = Path(PYPROJECT_PATH).read_text(encoding="utf-8")
@@ -94,13 +96,23 @@ def insert_changelog_entry(version, block, dry_run=False):
         Path(CHANGELOG_PATH).write_text(new_content, encoding="utf-8")
         print(f"[release] Changelog updated with version {version}")
 
-def git_commit_and_tag(version, dry_run=False):
+def git_commit_and_tag(version, dry_run=False, no_tag=False):
     if dry_run:
         print(f"[DRY-RUN] Would commit and tag version {version}")
         return
 
+    # STAGING PROMPT
+    proceed = input("[STAGING] Proceed with commit and tag? [y/N]: ").strip().lower()
+    if proceed != "y":
+        print("[STAGING] Aborted before commit/tag.")
+        return
+
     subprocess.run(["git", "add", PYPROJECT_PATH, CHANGELOG_PATH], check=True)
     subprocess.run(["git", "commit", "-m", f"release: v{version}"], check=True)
+
+    if no_tag:
+        print(f"[release] Skipping tag for v{version}")
+        return
 
     tag = f"v{version}"
     result = subprocess.run(["git", "tag", "-l", tag], capture_output=True, text=True)
@@ -111,36 +123,41 @@ def git_commit_and_tag(version, dry_run=False):
     subprocess.run(["git", "tag", tag], check=True)
     print(f"[release] Created commit and tag {tag}")
 
-def main():
-    args = parse_args()
-    current_version = get_current_version()
-    tag = args.tag or prompt_for_tag(dry_run=args.dry_run)
-
-    if args.hotfix:
-        new_version = f"{current_version}-{tag}"
-    else:
-        new_version = compute_next_version(current_version, patch=args.patch)
-        new_version = f"{new_version}-{tag}"
-
+def prompt_continue_summary(current_version, new_version, args):
     prefix = "[DRY-RUN] " if args.dry_run else ""
     print("======================")
     print(f"{prefix}Preparing Release")
     print(f"{prefix}  From: {current_version}")
     print(f"{prefix}  To:   {new_version}")
     print(f"{prefix}  Mode: {'Hotfix' if args.hotfix else 'Patch' if args.patch else 'Normal'}")
-    print(f"{prefix}  Tag:  {tag}")
+    print(f"{prefix}  Tag:  {args.tag or 'inferred'}")
+    print(f"{prefix}  Git Tagging: {'Skipped' if args.no_tag else 'Enabled'}")
     print("======================")
     proceed = input(f"{prefix}Continue? [y/N]: ").strip().lower()
-    if proceed != 'y':
+    if proceed != "y":
         print(f"{prefix}Aborted.")
-        return
+        exit(0)
 
-    update_pyproject_version(new_version, dry_run=args.dry_run)
+def main():
+    args = parse_args()
+    current_version = get_current_version()
+    tag = args.tag or "dev"
+
+    next_version = compute_next_version(
+        current_version,
+        patch=args.patch or not args.hotfix,
+        hotfix=args.hotfix,
+        tag=tag
+    )
+
+    prompt_continue_summary(current_version, next_version, args)
+    update_pyproject_version(next_version, dry_run=args.dry_run)
+
     commits = get_commits_since_last_tag()
     added, changed, fixed, other = classify_commits(commits)
-    block = format_changelog(new_version, added, changed, fixed, other)
-    insert_changelog_entry(new_version, block, dry_run=args.dry_run)
-    git_commit_and_tag(new_version, dry_run=args.dry_run)
+    block = format_changelog(next_version, added, changed, fixed, other)
+    insert_changelog_entry(next_version, block, dry_run=args.dry_run)
+    git_commit_and_tag(next_version, dry_run=args.dry_run, no_tag=args.no_tag)
 
 if __name__ == "__main__":
     main()
