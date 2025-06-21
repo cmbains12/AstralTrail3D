@@ -66,16 +66,8 @@ def classify_commits(commits):
             other.append(c.strip())
     return added, changed, fixed, other
 
-def format_changelog(version, added, changed, fixed, other):
-    today = datetime.date.today().isoformat()
-    def sec(title, lines): return f"### {title}\n" + "\n".join(f"- {l}" for l in lines) + "\n\n" if lines else ""
-    return (
-        f"\n## [{version}] - {today}\n\n"
-        + sec("Added", added)
-        + sec("Changed", changed)
-        + sec("Fixed", fixed)
-        + sec("Other", other)
-    )
+def format_changelog_section(title, lines):
+    return f"### {title}\n" + "\n".join(f"- {l}" for l in lines) + "\n\n" if lines else ""
 
 def insert_changelog_entry(version, block, dry_run=False, hotfix=False):
     changelog = Path(CHANGELOG_PATH)
@@ -83,26 +75,22 @@ def insert_changelog_entry(version, block, dry_run=False, hotfix=False):
 
     if f"## [{version}]" in content:
         if hotfix:
-            print(f"[release] Appending hotfix changes to existing version {version}")
-            new_content = re.sub(
-                rf"(## \[{re.escape(version)}\].*?\n)(?=\n## |\Z)",
-                rf"\1{block}\n",
-                content,
-                flags=re.DOTALL
-            )
+            # Insert hotfix changes inside the existing version block
+            pattern = rf'(## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}\n\n)'
+            insertion = f"#### Hotfix changes ({datetime.date.today().isoformat()})\n\n" + block
+            new_content = re.sub(pattern, rf"\1{insertion}", content)
             if dry_run:
-                print(f"[DRY-RUN] Would append to changelog for hotfix version {version}")
+                print(f"[DRY-RUN] Would insert hotfix changes into changelog for version {version}")
             else:
                 changelog.write_text(new_content, encoding="utf-8")
-                print(f"[release] Changelog updated with hotfix changes")
-            return
+                print(f"[release] Appended hotfix changes to version {version}")
         else:
             print(f"[release] Changelog already contains version {version}")
-            return
+        return
 
     new_content = block + content
     if dry_run:
-        print(f"[DRY-RUN] Would insert new changelog entry:\n---\n{block}\n---")
+        print(f"[DRY-RUN] Would insert new changelog block:\n---\n{block}\n---")
     else:
         changelog.write_text(new_content, encoding="utf-8")
         print(f"[release] Changelog updated with version {version}")
@@ -155,8 +143,16 @@ def main():
     update_pyproject_version(next_version, dry_run=args.dry_run)
     commits = get_commits_since_last_tag()
     added, changed, fixed, other = classify_commits(commits)
-    block = format_changelog(next_version, added, changed, fixed, other)
-    insert_changelog_entry(next_version, block, dry_run=args.dry_run, hotfix=args.hotfix)
+
+    changelog_block = (
+        format_changelog_section("Added", added) +
+        format_changelog_section("Changed", changed) +
+        format_changelog_section("Fixed", fixed) +
+        format_changelog_section("Other", other)
+    )
+
+    formatted_block = f"\n## [{next_version}] - {datetime.date.today().isoformat()}\n\n" + changelog_block
+    insert_changelog_entry(next_version, changelog_block, dry_run=args.dry_run, hotfix=args.hotfix)
     git_commit_and_tag(next_version, dry_run=args.dry_run, no_tag=args.no_tag)
 
 if __name__ == "__main__":
