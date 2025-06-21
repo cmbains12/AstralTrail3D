@@ -1,3 +1,14 @@
+
+## [2025.1002-dev] - 2025-06-21
+### Other
+- meta - debugging version changes
+- meta - debugging version changes
+- meta - debugging version changes
+- meta - debugging version changes
+- meta - debugging version changes
+- meta - debugging version changes
+- meta - debugging version changes
+
 ## [2025.1001-dev] - 2025-06-20
 ### Added
 - Project structure refactored to modular layout under `src/`
