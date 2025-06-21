@@ -49,17 +49,17 @@ def get_last_version_from_changelog():
                 return match.group(1)
     return None  # No previous version found
 
-def get_commits_since_last_release():
-    last_version = get_last_version_from_changelog()
-    if last_version:
-        try:
-            range_spec = f"{last_version}..HEAD"
-            commits = subprocess.check_output(["git", "log", range_spec, "--pretty=format:%s"], encoding="utf-8")
-        except subprocess.CalledProcessError:
-            commits = subprocess.check_output(["git", "log", "HEAD", "--pretty=format:%s"], encoding="utf-8")
-    else:
-        commits = subprocess.check_output(["git", "log", "HEAD", "--pretty=format:%s"], encoding="utf-8")
-    return commits.strip().split("\n")
+def get_commits_since_last_tag():
+    try:
+        last_tag = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], encoding="utf-8").strip()
+        if last_tag:
+            range_spec = f"{last_tag}..HEAD"
+        else:
+            raise subprocess.CalledProcessError(1, "git describe")
+    except subprocess.CalledProcessError:
+        range_spec = "HEAD"
+    commits = subprocess.check_output(["git", "log", range_spec, "--pretty=format:%s"], encoding="utf-8")
+    return commits.strip().split("\n") if commits else []
 
 def classify_commits(commits):
     added, changed, fixed, other = [], [], [], []
@@ -136,7 +136,7 @@ def main():
 
     bump_version(next_version, dry_run=args.dry_run)
 
-    commits = get_commits_since_last_release()
+    commits = get_commits_since_last_tag()
     added, changed, fixed, other = classify_commits(commits)
 
     block = format_changelog(next_version, added, changed, fixed, other)
