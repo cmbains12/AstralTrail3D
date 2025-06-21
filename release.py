@@ -27,11 +27,11 @@ def get_current_version():
 
 
 def compute_next_version(current_version, patch=False, tag=None):
-    year, rest = current_version.split(".")
-    build = rest.split("-")[0]
-    new_build = int(build) + 1 if patch or not rest.endswith("0") else int(build)
-    base_version = f"{year}.{new_build}"
-    return f"{base_version}-{tag}" if tag else base_version
+    base, *old_tag = current_version.split("-")
+    year, build = base.split(".")
+    new_build = int(build) + 1 if patch or not old_tag else int(build)
+    suffix = tag or old_tag[0] if old_tag else ""
+    return f"{year}.{new_build}-{suffix}" if suffix else f"{year}.{new_build}"
 
 
 def update_pyproject_version(new_version, dry_run=False):
