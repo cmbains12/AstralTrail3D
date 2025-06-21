@@ -5,6 +5,13 @@
 ### Other
 - meta - allowing for meta
 
+## [2025.1001-dev-hotfix] - 2025-06-21
+
+#### Hotfix patch (2025-06-21)
+### Other
+- meta - updating License
+
+
 ## [2025.1001-dev] - 2025-06-20
 ### Added
 - Project structure refactored to modular layout under `src/`
