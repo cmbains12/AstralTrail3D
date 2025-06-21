@@ -79,7 +79,7 @@ def format_changelog(version, added, changed, fixed, other):
     today = datetime.date.today().isoformat()
     def sec(title, lines): return f"### {title}\n" + "\n".join(f"- {l}" for l in lines) + "\n\n" if lines else ""
     return (
-        f"\n## [{version}] - {today} <!-- {{bumpver}} -->\n\n"
+        f"\n## [{version}] - {today}\n\n"
         + sec("Added", added)
         + sec("Changed", changed)
         + sec("Fixed", fixed)

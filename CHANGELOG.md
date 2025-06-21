@@ -1,5 +1,5 @@
 
-## [2025.1002-dev] - 2025-06-21 <!-- {bumpver} -->
+## [2025.1002-dev] - 2025-06-21
 
 ### Other
 - debugging release system: pyproject
