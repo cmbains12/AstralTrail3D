@@ -1,17 +1,47 @@
-# release.py
-
 import subprocess
 import datetime
+import argparse
+import toml
+import re
+from pathlib import Path
 
 CHANGELOG_PATH = "CHANGELOG.md"
+PYPROJECT_PATH = "pyproject.toml"
 
-def insert_changelog_entry(version):
-    today = datetime.date.today().isoformat()
-    commits = get_commits_since_last_tag()
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dry-run", action="store_true", help="Preview changes only")
+    parser.add_argument("--hotfix", action="store_true", help="Apply a hotfix tag to the version")
+    return parser.parse_args()
 
+def bump_version(tag=None, dry_run=False):
+    cmd = ["bumpver", "update"]
+    if tag:
+        cmd += ["--tag", tag]
+    if dry_run:
+        cmd.append("--dry")
+    subprocess.run(cmd, check=True)
+
+def get_version():
+    data = toml.load(PYPROJECT_PATH)
+    return data["project"]["current_version"]
+
+def get_commits_since_last_tag():
+    try:
+        last_tag = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], encoding="utf-8").strip()
+    except subprocess.CalledProcessError:
+        last_tag = None
+    cmd = ["git", "log", "--pretty=format:%s"]
+    if last_tag:
+        cmd.insert(3, f"{last_tag}..HEAD")
+    output = subprocess.check_output(cmd, encoding="utf-8")
+    return output.strip().split("\n")
+
+def classify_commits(commits):
     added = []
     changed = []
     fixed = []
+    other = []
 
     for c in commits:
         c_lower = c.lower()
@@ -22,84 +52,51 @@ def insert_changelog_entry(version):
         elif c_lower.startswith("change:"):
             changed.append(c[7:].strip())
         else:
-            changed.append(c.strip())  # fallback category
+            other.append(c.strip())
+    return added, changed, fixed, other
 
-    def format_section(title, items):
-        if not items:
-            return f"### {title}\n- \n"
-        return f"### {title}\n" + "\n".join(f"- {item}" for item in items) + "\n"
-
-    entry = (
+def format_changelog_block(version, added, changed, fixed, other):
+    today = datetime.date.today().isoformat()
+    def section(title, items):
+        return f"### {title}\n" + "\n".join(f"- {i}" for i in items) + "\n\n" if items else ""
+    return (
         f"\n## [{version}] - {today} <!-- {{bumpver}} -->\n\n"
-        + format_section("Added", added)
-        + "\n"
-        + format_section("Changed", changed)
-        + "\n"
-        + format_section("Fixed", fixed)
+        + section("Added", added)
+        + section("Changed", changed)
+        + section("Fixed", fixed)
+        + section("Other", other)
     )
 
-    with open(CHANGELOG_PATH, "r+", encoding="utf-8") as f:
-        content = f.read()
-        if f"## [{version}]" in content:
-            print(f"[release] Entry for version {version} already exists.")
-            return
-        f.seek(0)
-        f.write(entry + "\n" + content)
-
-
-def get_commits_since_last_tag():
-    try:
-        last_tag = subprocess.check_output(
-            ["git", "describe", "--tags", "--abbrev=0"],
-            encoding="utf-8"
-        ).strip()
-    except subprocess.CalledProcessError:
-        last_tag = None
-
-    if last_tag:
-        cmd = ["git", "log", f"{last_tag}..HEAD", "--pretty=format:%s"]
+def insert_changelog_entry(version, block, dry_run=False):
+    changelog = Path(CHANGELOG_PATH)
+    content = changelog.read_text(encoding="utf-8")
+    if f"## [{version}]" in content:
+        print(f"[release] Changelog already contains entry for {version}")
+        return
+    new_content = block + "\n" + content
+    if dry_run:
+        print("==== DRY RUN ====")
+        print(new_content)
     else:
-        cmd = ["git", "log", "--pretty=format:%s"]
-
-    output = subprocess.check_output(cmd, encoding="utf-8")
-    commits = output.strip().split("\n")
-    return commits
-
-
-def bump_version(tag=None):
-    cmd = ["bumpver", "update"]
-    if tag:
-        cmd += ["--tag", tag]
-    subprocess.run(cmd, check=True)
-
-def insert_changelog_entry(version):
-    today = datetime.date.today().isoformat()
-    entry = f"\n## [{version}] - {today} <!-- {{bumpver}} -->\n\n### Added\n- \n\n### Changed\n- \n\n### Fixed\n- \n"
-
-    with open(CHANGELOG_PATH, "r+", encoding="utf-8") as f:
-        content = f.read()
-        if f"## [{version}]" in content:
-            print(f"[release] Entry for version {version} already exists.")
-            return
-        f.seek(0)
-        f.write(entry + content)
-
-def get_version():
-    with open("pyproject.toml", encoding="utf-8") as f:
-        for line in f:
-            if line.strip().startswith("current_version"):
-                version = line.split("=")[1].split("#")[0].strip().strip('"')
-                return version
-    raise RuntimeError("Version not found in pyproject.toml")
+        changelog.write_text(new_content, encoding="utf-8")
+        print(f"[release] Changelog updated with version {version}")
 
 def main():
-    bump_version()
-    version = get_version()
-    insert_changelog_entry(version)
+    args = parse_args()
+    tag = "hotfix" if args.hotfix else None
 
-    print(f"[release] Commits since last tag:")
-    for c in get_commits_since_last_tag():
-        print(f" - {c}")
+    print("[release] Bumping version...")
+    bump_version(tag=tag, dry_run=args.dry_run)
+
+    version = get_version()
+    print(f"[release] New version: {version}")
+
+    print("[release] Collecting commits...")
+    commits = get_commits_since_last_tag()
+    added, changed, fixed, other = classify_commits(commits)
+
+    block = format_changelog_block(version, added, changed, fixed, other)
+    insert_changelog_entry(version, block, dry_run=args.dry_run)
 
 if __name__ == "__main__":
     main()
