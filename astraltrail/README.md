@@ -71,6 +71,45 @@ Still in development or early research, these features represent the broader goa
 
 ---
 
+## Tech Stack & Architecture
+
+### Primary Language:
+
+- Python 3.11+ — chosen for rapid prototyping, introspection tools, and flexible data structures.
+
+### Graphics & Simulation:
+
+- OpenGL via pyglet (2.1.6) — custom shader pipeline, instanced rendering, and GPU-side logic.
+- NumPy — vector math, SDF field manipulation, and simulation state.
+- ctypes — low-level GPU and OpenGL integration.
+
+### Build & Dev Tools:
+
+- black, isort, pytest — formatting, linting, and test automation.
+- bumpver + custom release.py — automated CalVer versioning and changelog generation.
+
+### Planned/Experimental:
+
+- Rust (via pyo3 or full Rust port) for performance-critical systems like physics, mesh generation, or chunk streaming.
+- Vulkan backend or SDF raymarcher for high-fidelity rendering.
+- Optional C++ interop for stable, high-performance engine core if Rust path is deprioritized.
+
+---
+
+## Module-Level Docs
+
+This root README summarizes the overall vision. Each engine subsystem maintains its own README.md for internal design and API details:
+
+- src/engine/ — engine bootstrap, config, and system loader
+- src/render/ — rendering systems and OpenGL bindings
+- src/world/ — voxel and chunk management
+- src/ai/ — symbolic AI companion design and observer logic
+- docs/ — long-form articles, design essays, and technical vision
+
+If viewing this on GitHub, click the folders above to view each README.md.
+
+---
+
 ## Release Workflow
 
 The engine uses calendar versioning (`2025.1002-dev`, etc.) and an automated release script that:
@@ -102,7 +141,6 @@ src/                   # Core engine code
 legacy/                # Archived monolithic prototype
 assets/                # Static resources (textures, etc.)
 docs/                  # Vision documents and essays
-
 CHANGELOG.md           # Auto-generated release history
 pyproject.toml         # Build and dependency metadata
 release.py             # Automated version and release script
@@ -112,7 +150,7 @@ release.py             # Automated version and release script
 
 ## License
 
-MIT License. See `LICENSE` for details.
+Business Source License 1.1 (BSL-1.1). See `LICENSE` for details.
 
 ---
 
