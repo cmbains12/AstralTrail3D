@@ -114,13 +114,18 @@ def update_pyproject_version(new_version, dry_run=False):
         Path(PYPROJECT_PATH).write_text(new_content, encoding="utf-8")
         print(f"[release] pyproject.toml updated to version {new_version}")
 
-def create_git_tag(version, dry_run=False):
+def git_commit_and_tag(version, dry_run=False):
     if dry_run:
-        print(f"[release] Would tag commit with: {version}")
-    else:
-        subprocess.run(["git", "tag", version], check=True)
-        subprocess.run(["git", "push", "origin", version], check=True)
-        print(f"[release] Tagged and pushed: {version}")
+        print(f"[dry-run] Would commit and tag version {version}")
+        return
+
+    subprocess.run(["git", "add", "."], check=True)
+
+    subprocess.run(["git", "commit", "-m", f"release: v{version}"], check=True)
+
+    subprocess.run(["git", "tag", f"v{version}"], check=True)
+
+    print(f"[release] Created commit and tag v{version}")
 
 def main():
     args = parse_args()
@@ -136,7 +141,7 @@ def main():
 
     block = format_changelog(next_version, added, changed, fixed, other)
     insert_changelog_entry(next_version, block, dry_run=args.dry_run)
-    create_git_tag(next_version, dry_run=args.dry_run)
+    git_commit_and_tag(next_version, dry_run=args.dry_run)
 
 if __name__ == "__main__":
     main()
