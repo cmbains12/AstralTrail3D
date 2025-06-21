@@ -6,6 +6,7 @@ from pathlib import Path
 
 CHANGELOG_PATH = "CHANGELOG.md"
 PYPROJECT_PATH = "pyproject.toml"
+BUMPVER_PATH = ".bumpver.toml"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -20,23 +21,27 @@ def get_current_version():
                 return line.split("=")[1].split("#")[0].strip().strip('"')
     raise RuntimeError("version not found in pyproject.toml")
 
-
 def compute_next_version(current_version, hotfix=False):
     year, rest = current_version.split(".")
-    if "-" in rest:
-        build, _ = rest.split("-")
-    else:
-        build = rest
+    build = rest.split("-")[0]
     new_build = int(build) + 1
     tag = "hotfix" if hotfix else "dev"
     return f"{year}.{new_build}-{tag}"
 
-def bump_version(new_version, dry_run=False):
-    cmd = ["bumpver", "update", "--set-version", new_version]
+def update_file(path, pattern, replacement, dry_run=False):
+    content = Path(path).read_text(encoding="utf-8")
+    new_content = re.sub(pattern, replacement, content)
     if dry_run:
-        cmd.append("--dry")
-    subprocess.run(cmd, check=True)
-    return new_version
+        print(f"[dry-run] Would update {path}:\n---\n{new_content}\n---")
+    else:
+        Path(path).write_text(new_content, encoding="utf-8")
+
+def update_versions(new_version, dry_run=False):
+    pyproject_pattern = r'version\s*=\s*".*?"\s*#\s*{bumpver}'
+    bumpver_pattern = r'current_version\s*=\s*".*?"'
+
+    update_file(PYPROJECT_PATH, pyproject_pattern, f'version = "{new_version}"  # {{bumpver}}', dry_run)
+    update_file(BUMPVER_PATH, bumpver_pattern, f'current_version = "{new_version}"', dry_run)
 
 def get_commits_since_last_tag():
     try:
@@ -75,17 +80,12 @@ def format_changelog(version, added, changed, fixed, other):
 def insert_changelog_entry(version, block, dry_run=False):
     changelog = Path(CHANGELOG_PATH)
     content = changelog.read_text(encoding="utf-8")
-
-    # Robust version check
-    pattern = rf'^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}} <!-- {{bumpver}} -->'
-    if re.search(pattern, content, re.MULTILINE):
+    if f"## [{version}]" in content:
         print(f"[release] Changelog already contains version {version}")
         return
-
     new_content = block + content
     if dry_run:
-        print("==== DRY RUN ====\n")
-        print(new_content)
+        print(f"[dry-run] Would insert changelog entry:\n---\n{block}\n---")
     else:
         changelog.write_text(new_content, encoding="utf-8")
         print(f"[release] Changelog updated with version {version}")
@@ -95,9 +95,9 @@ def main():
 
     current = get_current_version()
     next_version = compute_next_version(current, args.hotfix)
-
     print(f"[release] Bumping from {current} → {next_version}")
-    bump_version(next_version, dry_run=args.dry_run)
+
+    update_versions(next_version, dry_run=args.dry_run)
 
     commits = get_commits_since_last_tag()
     added, changed, fixed, other = classify_commits(commits)
