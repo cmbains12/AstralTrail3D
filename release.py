@@ -40,10 +40,17 @@ def update_file(path, pattern, replacement, dry_run=False):
         Path(path).write_text(new_content, encoding="utf-8")
 
 def update_pyproject_version(new_version, dry_run=False):
-    pattern = r'version\s*=\s*"[\d\.]+-[\w]+"'
-    replacement = f'version = "{new_version}"'
-    update_file(PYPROJECT_PATH, pattern, replacement, dry_run)
-    if not dry_run:
+    """Updates version in pyproject.toml to match the new version (including hotfix/dev suffix)."""
+    content = Path(PYPROJECT_PATH).read_text(encoding="utf-8")
+    new_content = re.sub(
+        r'version\s*=\s*"[\d\.]+(?:-[\w]+)*(?:-[\w]+)?"',
+        f'version = \"{new_version}\"',
+        content
+    )
+    if dry_run:
+        print(f"[DRY-RUN] Would update pyproject.toml to version: {new_version}")
+    else:
+        Path(PYPROJECT_PATH).write_text(new_content, encoding="utf-8")
         print(f"[release] pyproject.toml updated to version {new_version}")
 
 def get_commits_since_last_tag():
@@ -163,6 +170,10 @@ def main():
     if confirm != "y":
         print(f"[{label}] Aborted.")
         return
+    
+    if args.hotfix:
+        tag = tag or "hotfix"
+        next_version = f"{current}-{tag}"
 
     update_pyproject_version(next_version, dry_run=args.dry_run)
 
