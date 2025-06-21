@@ -10,48 +10,34 @@ PYPROJECT_PATH = "pyproject.toml"
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Preview changes without modifying files")
-    parser.add_argument("--hotfix", action="store_true", help="Append to current version as hotfix")
-    parser.add_argument("--patch", action="store_true", help="Bump version without changing tag")
-    parser.add_argument("--tag", type=str, help="Suffix tag to apply (e.g., dev, alpha)")
-    parser.add_argument("--no-tag", action="store_true", help="Skip creating git tag")
+    parser.add_argument("--hotfix", action="store_true", help="Mark as hotfix (no version bump, appends to last block)")
+    parser.add_argument("--patch", action="store_true", help="Increment version as a patch")
+    parser.add_argument("--tag", type=str, help="Optional version tag (e.g., dev, beta, stable)")
+    parser.add_argument("--no-tag", action="store_true", help="Skip Git tag creation")
     return parser.parse_args()
 
 def get_current_version():
     with open(PYPROJECT_PATH, encoding="utf-8") as f:
         for line in f:
             if line.strip().startswith("version"):
-                return line.split("=")[1].split("#")[0].strip().strip('"')
+                return line.split("=")[1].strip().strip('"')
     raise RuntimeError("version not found in pyproject.toml")
 
-def compute_next_version(current_version, patch=False, tag=None):
-    year, rest = current_version.split(".")
-    build = rest.split("-")[0]
-    new_build = int(build) + 1 if not patch else int(build)
-    suffix = tag if tag else rest.split("-")[1] if "-" in rest else "dev"
-    return f"{year}.{new_build}-{suffix}"
+def compute_next_version(current_version, patch=False, hotfix=False, tag=None):
+    base, *existing_tags = current_version.split("-")
+    tags = set(existing_tags)
 
-def update_file(path, pattern, replacement, dry_run=False):
-    content = Path(path).read_text(encoding="utf-8")
-    new_content = re.sub(pattern, replacement, content)
-    if dry_run:
-        print(f"[dry-run] Would update {path}:")
-        print("---\n" + new_content + "\n---")
-    else:
-        Path(path).write_text(new_content, encoding="utf-8")
+    if hotfix:
+        tags.add("hotfix")
+    if tag:
+        tags.add(tag)
 
-def update_pyproject_version(new_version, dry_run=False):
-    """Updates version in pyproject.toml to match the new version (including hotfix/dev suffix)."""
-    content = Path(PYPROJECT_PATH).read_text(encoding="utf-8")
-    new_content = re.sub(
-        r'version\s*=\s*"[^"]+"',
-        f'version = \"{new_version}\"',
-        content
-    )
-    if dry_run:
-        print(f"[DRY-RUN] Would update pyproject.toml to version: {new_version}")
-    else:
-        Path(PYPROJECT_PATH).write_text(new_content, encoding="utf-8")
-        print(f"[release] pyproject.toml updated to version {new_version}")
+    if patch and not hotfix:
+        year, build = base.split(".")
+        base = f"{year}.{int(build)+1}"
+
+    tag_suffix = "-" + "-".join(sorted(tags)) if tags else ""
+    return base + tag_suffix
 
 def get_commits_since_last_tag():
     try:
@@ -76,118 +62,104 @@ def classify_commits(commits):
             other.append(c.strip())
     return added, changed, fixed, other
 
-def format_changelog(version, added, changed, fixed, other, hotfix=False):
+def format_changelog_block(version, added, changed, fixed, other, hotfix=False):
     today = datetime.date.today().isoformat()
     def sec(title, lines): return f"### {title}\n" + "\n".join(f"- {l}" for l in lines) + "\n\n" if lines else ""
-    if hotfix:
-        return (
-            f"\n## [{version}] - {today}\n\n"
-            f"#### Hotfix patch ({today})\n"
-            + sec("Added", added)
-            + sec("Changed", changed)
-            + sec("Fixed", fixed)
-            + sec("Other", other)
-        )
-    else:
-        return (
-            f"\n## [{version}] - {today}\n\n"
-            + sec("Added", added)
-            + sec("Changed", changed)
-            + sec("Fixed", fixed)
-            + sec("Other", other)
-        )
 
-def insert_changelog_entry(version, block, dry_run=False, hotfix=False):
+    if hotfix:
+        return f"\n#### Hotfix patch ({today})\n\n" + sec("Added", added) + sec("Changed", changed) + sec("Fixed", fixed) + sec("Other", other)
+    else:
+        return f"\n## [{version}] - {today}\n\n" + sec("Added", added) + sec("Changed", changed) + sec("Fixed", fixed) + sec("Other", other)
+
+def update_pyproject_version(version, dry_run=False):
+    content = Path(PYPROJECT_PATH).read_text(encoding="utf-8")
+    new_content = re.sub(r'version\s*=\s*"[^"]+"', f'version = "{version}"', content)
+    if dry_run:
+        print(f"[DRY-RUN] Would update pyproject.toml to version: {version}")
+    else:
+        Path(PYPROJECT_PATH).write_text(new_content, encoding="utf-8")
+        print(f"[release] pyproject.toml updated to version {version}")
+
+def insert_changelog_entry(version, block, hotfix=False, dry_run=False):
     changelog = Path(CHANGELOG_PATH)
     content = changelog.read_text(encoding="utf-8")
-    if hotfix and f"[{version}]" in content:
+
+    if hotfix:
+        pattern = rf"(## \[{re.escape(version)}\].*?)(?=\n## |\Z)"
+        updated = re.sub(pattern, r"\1" + block, content, flags=re.DOTALL)
+        if updated == content:
+            raise RuntimeError(f"Could not find changelog block for version {version}")
         if dry_run:
-            print(f"[DRY-RUN] Would append hotfix block to existing version {version}")
+            print(f"[DRY-RUN] Would insert hotfix changes into changelog for version {version}")
         else:
-            updated = re.sub(f"(## \\[{version}\\].*?)(?=\n## |\Z)", r"\1" + block, content, flags=re.DOTALL)
             changelog.write_text(updated, encoding="utf-8")
             print(f"[release] Appended hotfix changes to version {version}")
-        return
-
-    if f"## [{version}]" in content:
-        print(f"[release] Changelog already contains version {version}")
-        return
-
-    new_content = block + content
-    if dry_run:
-        print(f"[DRY-RUN] Would insert changelog entry:\n---\n{block}\n---")
     else:
-        changelog.write_text(new_content, encoding="utf-8")
-        print(f"[release] Changelog updated with version {version}")
+        if f"## [{version}]" in content:
+            print(f"[release] Changelog already contains version {version}")
+            return
+        new_content = block + content
+        if dry_run:
+            print(f"[DRY-RUN] Would add new changelog block:\n---\n{block}\n---")
+        else:
+            changelog.write_text(new_content, encoding="utf-8")
+            print(f"[release] Changelog updated with version {version}")
 
 def git_commit_and_tag(version, dry_run=False, no_tag=False):
     if dry_run:
         print(f"[DRY-RUN] Would commit and tag version {version}")
         return
 
-    subprocess.run(["git", "add", "pyproject.toml", "CHANGELOG.md"], check=True)
-    result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
-    if not result.stdout.strip():
-        print("[release] Nothing to commit.")
-        return
-
+    subprocess.run(["git", "add", PYPROJECT_PATH, CHANGELOG_PATH], check=True)
     subprocess.run(["git", "commit", "-m", f"release: v{version}"], check=True)
 
-    if not no_tag:
-        tag = f"v{version}"
-        existing = subprocess.run(["git", "tag", "-l", tag], capture_output=True, text=True)
-        if tag in existing.stdout:
-            subprocess.run(["git", "tag", "-d", tag], check=True)
-        subprocess.run(["git", "tag", tag], check=True)
-        print(f"[release] Created tag {tag}")
+    if no_tag:
+        return
+
+    tag = f"v{version}"
+    existing = subprocess.run(["git", "tag", "-l", tag], capture_output=True, text=True)
+    if tag in existing.stdout:
+        print(f"[release] Tag {tag} already exists, deleting...")
+        subprocess.run(["git", "tag", "-d", tag], check=True)
+
+    subprocess.run(["git", "tag", tag], check=True)
+    print(f"[release] Created tag {tag}")
 
 def main():
     args = parse_args()
+    dry = args.dry_run
+    hotfix = args.hotfix
+    patch = args.patch
+    tag = args.tag
+
     current = get_current_version()
+    next_version = compute_next_version(current, patch=patch, hotfix=hotfix, tag=tag)
 
-    is_hotfix = args.hotfix
-    is_patch = args.patch
-
-    tag = args.tag or input("[release] Enter tag (e.g., dev, alpha, beta): ").strip()
-    if not tag:
-        tag = "dev"
-
-    if is_hotfix:
-        next_version = current  # no bump
-    else:
-        next_version = compute_next_version(current, patch=is_patch, tag=tag)
-
-    label = "DRY-RUN" if args.dry_run else "release"
-    print("="*22)
-    print(f"[{label}] Preparing Release")
-    print(f"[{label}]   From: {current}")
-    print(f"[{label}]   To:   {next_version}")
-    print(f"[{label}]   Mode: {'Hotfix' if is_hotfix else 'Patch' if is_patch else 'Normal'}")
-    print(f"[{label}]   Tag:  {tag}")
-    print("="*22)
-
-    confirm = input(f"[{label}] Continue? [y/N]: ").strip().lower()
-    if confirm != "y":
-        print(f"[{label}] Aborted.")
+    mode = "Hotfix" if hotfix else "Patch" if patch else "Normal"
+    print("\n======================")
+    print(f"[{'DRY-RUN' if dry else 'release'}] Preparing Release")
+    print(f"[{'DRY-RUN' if dry else 'release'}]   From: {current}")
+    print(f"[{'DRY-RUN' if dry else 'release'}]   To:   {next_version}")
+    print(f"[{'DRY-RUN' if dry else 'release'}]   Mode: {mode}")
+    print(f"[{'DRY-RUN' if dry else 'release'}]   Tag:  {tag or '(none)'}")
+    print("======================")
+    proceed = input(f"[{'DRY-RUN' if dry else 'release'}] Continue? [y/N]: ")
+    if proceed.strip().lower() != "y":
+        print(f"[{'DRY-RUN' if dry else 'release'}] Aborted.")
         return
-    
-    if args.hotfix:
-        tag = tag or "hotfix"
-        next_version = f"{current}-{tag}"
 
-    update_pyproject_version(next_version, dry_run=args.dry_run)
-
+    update_pyproject_version(next_version, dry_run=dry)
     commits = get_commits_since_last_tag()
     added, changed, fixed, other = classify_commits(commits)
 
-    block = format_changelog(next_version if not is_hotfix else f"{next_version}-hotfix", added, changed, fixed, other, hotfix=is_hotfix)
-    insert_changelog_entry(next_version if not is_hotfix else f"{next_version}-hotfix", block, dry_run=args.dry_run, hotfix=is_hotfix)
+    block = format_changelog_block(next_version, added, changed, fixed, other, hotfix=hotfix)
+    insert_changelog_entry(next_version, block, hotfix=hotfix, dry_run=dry)
 
-    stage = input("[STAGING] Proceed with commit and tag? [y/N]: ").strip().lower()
-    if stage == "y":
-        git_commit_and_tag(next_version if not is_hotfix else f"{next_version}-hotfix", dry_run=args.dry_run, no_tag=args.no_tag)
+    stage = input(f"[{'DRY-RUN' if dry else 'STAGING'}] Proceed with commit and tag? [y/N]: ")
+    if stage.strip().lower() == "y":
+        git_commit_and_tag(next_version, dry_run=dry, no_tag=args.no_tag)
     else:
-        print("[release] Commit skipped.")
+        print(f"[{'DRY-RUN' if dry else 'release'}] Commit and tag skipped.")
 
 if __name__ == "__main__":
     main()
