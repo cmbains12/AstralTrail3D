@@ -4,6 +4,65 @@
 
 ---
 
+## Architectural Design Goals
+
+Astral Engine is architected to serve not just as a rendering or gameplay framework, but as a platform for simulation-native software development. Every system is designed with careful tradeoffs between performance, clarity, and creative control. If a paradigm or a principle can be justified to serve at least one, or possible all guiding values, it is then elevated and explored to maximize its impact and minimize its trade-offs.  The biggest contribution to success might be found in powerful combinations and fresh-minded approaches to well-tested ideas.  Architecture is anchored by the following design goals:
+ 
+### High-Fidelity, Cache-Aware Data Pipelines
+
+Simulation and rendering systems are built around memory-contiguous, batch-processed data pipelines that maximize CPU and GPU cache usage. Data structures and processing flows are explicitly structured to reduce branching, indirection, and unnecessary state duplication—enabling high-throughput, low-latency processing for physics, rendering, and AI alike.
+
+This approach draws inspiration from Data-Oriented Design (DOD) and modern systems engineering to deliver performance without premature specialization or hand-tuned hacks. The result is predictable, inspectable, and maintainable code that remains performant across scale.
+
+### Complexity Where It Matters
+
+The engine embraces complexity in the simulation core—where nuance, precision, and systemic depth matter—but distills away friction in developer-facing systems. APIs, hooks, and scripting interfaces are designed to reduce mental overhead and cognitive branching, making it easier for developers (including future contributors and modders) to reason about behavior, stack systems, and extend capabilities without breakage.
+
+- This structured simplicity supports:
+- Fast iteration and debugging
+- Modular, composable gameplay systems
+- Safe and intuitive control over emergent behavior
+
+### Extensible, Composable System Stack
+
+Modding and long-term extensibility are central to the architecture. Systems can be composed and extended cleanly, even when interdependent. Examples include:
+
+- Layered physics systems (grid-based collision, SDF deformation, material flow)
+- Hybrid symbolic & perceptual AI (e.g. Astral observing the world, not querying internals)
+- Reversible time systems, saliency maps, and memory overlays
+
+All such systems are designed to be stackable, inspectable, and interoperable—without entangling core simulation logic.
+
+### Threading and Memory Safety via DSL Contract
+
+To enable collaboration, modding, and parallelism without sacrificing safety, Astral Engine will integrate a custom-designed scripting language and execution contract. This DSL is purpose-built for:
+
+- Controlled simulation access and memory sandboxing
+- Safe threading and parallel execution
+- High-level gameplay logic with low-level guarantees
+
+This forms the foundation for future multiplayer/server support, dynamic physics extensions, and user-driven AI and scripting—without introducing nondeterminism or architectural brittleness.
+
+### Performance Scaling and Ecological Considerations
+
+The engine is being developed with flexible scaling in mind. Systems dynamically adjust fidelity based on distance, activity, or system load. This reduces draw on local resources, enabling:
+
+- Smooth gameplay on a wide range of hardware
+- Graceful degradation for large world sizes or multiplayer scope
+- Environmentally conscious resource usage for local and hosted simulations
+
+### Vision Beyond Gameplay
+
+Astral Engine is informed by a broad cross-disciplinary foundation: physics, simulation engineering, user experience, game design, AI systems, and software architecture. It is designed to:
+
+- Achieve feature parity with commercial and research-grade engines in select domains
+- Enable gameplay mechanics grounded in real system dynamics
+- Offer an engine-level substrate for academic exploration, simulation R&D, and future AI-native tooling
+
+This positions Astral Engine not only as a vehicle for solo game development, but as a platform for simulation-first software that bridges play, research, and computational design.
+
+---
+
 ## Core Principles
 
 ### Unified Substrate
@@ -41,6 +100,59 @@ This engine doesn't hide complexity behind pre-baked abstractions—it exposes h
 ### Efficient Use of System Resources
 
 Because the engine supports dynamic fidelity scaling across simulation and rendering, system resources are focused where they're needed most. Background areas or inactive systems can downgrade gracefully, while active scenes maintain full fidelity. This allows for larger worlds, richer simulations, and better performance without overly aggressive culling or fakery.
+
+---
+
+## Architecture Diagrams
+
+### High Level System Graphing
+                    +------------------------------+
+                    |        Game Application      |
+                    +--------------+---------------+
+                                   |
+                    Calls into Engine API Interface via DSL
+                                   |
+                    +--------------v--------------------------+
+                    |      Astral Engine Core                 |
+                    |(Modular Runtime and DSL JIT Compilation)|
+                    +--------------+--------------------------+
+                                   |
+                   Delegates Simulation Tasks via tight DSL 
+                   typing and schedule protocols and rules.
+                   The DSL is an abstraction and execution of
+                   these rules and protocols
+                                   |
+                    +--------------v---------------+
+                    |  Thread Scheduler & Safety   |  <== Firewall Layer
+                    |       (Execution Control)    |
+                    +--------------+---------------+
+                                   |
+                          +------------------------------+
+                          |     Simulation Pipeline      |
+                          |  (Threaded, Modular, Safe)   |
+                          +-------------+----------------+
+                                        |
+        +-------------------------------+--------------------------------+
+        |                               |                                |
++---------------+           +--------------------+           +--------------------+
+|   Rendering   |           |      Physics       |           |        AI / Logic  |
+|   Pipeline    |           |      Pipeline      |           |      Pipeline      |
++-------+-------+           +---------+----------+           +---------+----------+
+        \\                          //                           //
+         \\                        //                           //
+          +------------------------v---------------------------+
+          |              Shared SDF Field Engine               |  <== Smooth geometry, sampling, distance ops
+          +------------------------+---------------------------+
+                                   ↕
+          +------------------------v---------------------------+
+          |               Voxel Grid Engine (Chunks)           |  <== Discrete spatial grounding, simulation cores
+          +------------------------+---------------------------+
+                                   ↕
+          +------------------------v---------------------------+
+          |              ECS Substrate / Data Layer            |  <== Unified entity/component storage
+          | (Memory-local, cache-aware, job-schedulable data)  |
+          +----------------------------------------------------+
+
 
 ---
 
