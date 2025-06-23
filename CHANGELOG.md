@@ -1,3 +1,10 @@
+
+## [2025.1002-dev] - 2025-06-23
+
+### Other
+- Set up testing suite and ECS entity management system: added pytest config, EntityManager implementation, and unit tests for creation and ID reuse
+- meta - cleaning changelog from messy versioning release debugging
+
 ## [2025.1001-dev-hotfix] - 2025-06-21
 
 #### Hotfix patch (2025-06-21)
