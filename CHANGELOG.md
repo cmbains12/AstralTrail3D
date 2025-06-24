@@ -1,8 +1,11 @@
 
 ## [2025.1003-dev] - 2025-06-23
 
-### Other
-- feat(ecs): implement flexible ComponentManager and core SystemManager with full test coverage - Added SoA-based component storage, sparse/dense modes, dynamic registration, and system query support - Introduced SystemManager with named system registration, tags, phases, and conditional execution - Added complete test suites for both managers
+### Added
+- [ECS]: implement flexible ComponentManager and core SystemManager with full test coverage 
+  - Added SoA-based component storage, sparse/dense modes, dynamic registration, and system query support 
+  - Introduced SystemManager with named system registration, tags, phases, and conditional execution 
+  - Added complete test suites for both managers
 
 
 ## [2025.1002-dev] - 2025-06-23
@@ -14,10 +17,12 @@
 ### Other
 - [META] - cleaning changelog from messy versioning release debugging
 
+
 ## [2025.1001-dev-hotfix] - 2025-06-21
 #### Hotfix patch (2025-06-21)
 ### Other
 - [META] - debugging version changes
+
 
 ## [2025.1001-dev] - 2025-06-20
 ### Added
