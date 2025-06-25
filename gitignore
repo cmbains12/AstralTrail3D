@@ -1,0 +1,58 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.astralvenv/
+.venv/
+env/
+venv/
+ENV/
+
+# Egg info
+*.egg-info/
+dist/
+build/
+
+# VSCode settings
+.vscode/
+*.code-workspace
+
+# Test artifacts
+.pytest_cache/
+
+# IDE and OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and dumps
+*.log
+*.tmp
+*.bak
+
+# Compiled Cython / C++
+*.so
+*.dll
+*.pyd
+*.o
+*.a
+
+# Python package metadata
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Project-specific
+release.py~
+sandbox.py~ 
+
+
+# GitHub-specific
+*.swp
+*.swo
+*.orig
+
+# Optional: ignore large data exports / temp files
+astraltrail/assets/export/
+astraltrail/assets/tmp/
