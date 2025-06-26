@@ -1,4 +1,12 @@
 
+## [2025.1004-dev] - 2025-06-25
+
+### Other
+- [SANDBOX] Add voxel grid generator for primitive shapes [SANDBOX] Implement voxel-to-SDF conversion with cubical expansion [SANDBOX] Add Marching Cubes mesh extraction from SDF field [SANDBOX] Integrate Gaussian smoothing on voxel shape before SDF [SANDBOX] Apply Gaussian filter to SDF for smooth edge blending [SANDBOX] Add isosurface tuning to balance volume shrinkage [SANDBOX] Hook smoothed mesh into OpenGL renderer via VAO pipeline [SANDBOX] Parameterize sdf_zoom, voxel_scale, and iso_level [SANDBOX] Tune smoothing and iso offset to preserve cube shape [SANDBOX] Validate smooth cube mesh extraction pipeline end-to-end [SANDBOX] Note performance limitations for future SDF/marching optimization
+- [SANDBOX] Raster-rendering pipeline. Verifying Voxel -> SDF -> Mesh pipeline. Setting stage for Raymarching pipeline. Experimenting with naive vs greedy meshing.
+- [META] - reorganizing
+
+
 ## [2025.1003-dev] - 2025-06-23
 
 ### Added
