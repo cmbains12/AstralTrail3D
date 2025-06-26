@@ -3,13 +3,31 @@ import pyglet.gl as gl
 from pyglet.window import key
 import numpy as np
 import ctypes as ct
-from scipy.ndimage import distance_transform_edt
+from scipy.ndimage import distance_transform_edt as edt 
+from scipy.ndimage import zoom, gaussian_filter
+import skfmm
 
 from astraltrail.src.engine.ecs.component import ComponentManager
 from astraltrail.src.engine.ecs.entity import EntityManager
 from astraltrail.src.engine.ecs.system import SystemManager
+from marching_cubes_triangle_table import TRIANGLE_TABLE, EDGE_TABLE
 
+corner_offsets = np.array([
+    [0, 0, 0],
+    [1, 0, 0],
+    [1, 1, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 0, 1],
+    [1, 1, 1],
+    [0, 1, 1],
+], dtype=np.int32)
 
+edge_corner_pairs = [
+    [0,1], [1,2], [2,3], [3,0],
+    [4,5], [5,6], [6,7], [7,4],
+    [0,4], [1,5], [2,6], [3,7]
+]
 
 fps = 60.0
 width = 1280
@@ -97,7 +115,7 @@ rast_fragment_shader_source_string = b'''
 
         vec3 lightDir = normalize(lightPos - FragPos);
 
-        float diffuse = max(0.0, dot(lightDir, FragNorm));
+        float diffuse = max(0.0, dot(lightDir, normalize(FragNorm)));
 
         float intensity = ambient + diffuse;
 
@@ -117,7 +135,7 @@ rmarch_program = None
 light_position = np.array([1000.0, 300.0, -150.0], dtype=np.float32)
 
 camera = {
-    'pos': np.array([0.0, 1.5, -10.0], dtype=np.float32),
+    'pos': np.array([0.0, 1.5, -5.0], dtype=np.float32),
     'yaw': 0.0,
     'pitch': 0.0,                
     'roll': 0.0,
@@ -127,18 +145,23 @@ camera = {
     'aspect': width / height            
 }
 
-def main():
-    print('[SANDBOX]')
+def main(mode='minecraft'):
+    print(f'[SANDBOX]-{mode.upper()}')
+    
+    voxel_scale = 0.1
+    sdf_zoom = 4
 
-    voxel_chunk = generate_voxel_grid(size=32)
+    iso = -0.1
+    voxel_chunk = generate_voxel_grid('cube', size=16)
 
-    sdf_field = generate_sdf_field(voxel_chunk)
+    if mode=='minecraft':
+        mesh, normals, vertex_count = generate_naive_surface_mesh(voxel_chunk, cube_scale=voxel_scale)
+    elif mode=='cube-march':
+        sdf_field = voxel_to_sdf_cubical(voxel_chunk, upsample=sdf_zoom, smoothing_sigma=0.1)
+        smoothed_field = gaussian_filter(sdf_field, sigma=0.4)
+        mesh, normals, vertex_count = cube_march(sdf_field=smoothed_field, iso_level=iso, scale=voxel_scale)
 
-    reconstructed_chunk = reconstruct_chunk_from_sdf(sdf_field)
-
-    surface_mesh, surface_normals, vertex_count = generate_naive_surface_mesh(reconstructed_chunk)
-
-    rast_vao = send_to_gl(surface_mesh, surface_normals)
+    rast_vao = send_to_gl(mesh, normals)
 
     global rast_program, rmarch_program
     rast_program = create_shader_program('raster')
@@ -146,9 +169,6 @@ def main():
 
     setup_gl(rast_program)
     initiate_uniforms(rast_program)
-
-    print(f"Vertex count: {vertex_count}")
-    print(f"First few vertices:\n{surface_mesh[:5]}")
 
     def on_draw():
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
@@ -164,7 +184,91 @@ def main():
     pyglet.clock.schedule_interval(update, 1 / fps)
     pyglet.app.run()
 
-        
+def compute_normal(sdf, pos, delta=0.5):
+    dx = trilinear_sdf_sample(sdf, pos + [delta, 0, 0]) - trilinear_sdf_sample(sdf, pos - [delta, 0, 0])
+    dy = trilinear_sdf_sample(sdf, pos + [0, delta, 0]) - trilinear_sdf_sample(sdf, pos - [0, delta, 0])
+    dz = trilinear_sdf_sample(sdf, pos + [0, 0, delta]) - trilinear_sdf_sample(sdf, pos - [0, 0, delta])
+    normal = np.array([dx, dy, dz], dtype=np.float32)
+    norm = np.linalg.norm(normal)
+    return normal / norm if norm > 0 else np.array([0.0, 1.0, 0.0], dtype=np.float32)
+
+def interpolate_vertex(p1, p2, v1, v2, iso_level):
+    if abs(v1 - v2) < 1e-12:
+        return (p1 + p2) * 0.5
+    t = np.clip((iso_level - v1) / (v2 - v1), 0.0, 1.0)
+    return p1 + t * (p2 - p1)
+
+def cube_march(sdf_field, iso_level=0.0, scale=0.05):
+    size_x, size_y, size_z = sdf_field.shape
+    vertices = []
+    normals = []
+
+    for x in range(size_x - 1):
+        for y in range(size_y - 1):
+            for z in range(size_z - 1):
+                cube_corner_positions = []
+                cube_corner_values = []
+
+                for i in range(8):
+                    offset = corner_offsets[i]
+                    pos = np.array([x, y, z], dtype=np.float32) + offset  # floating point position in grid coords
+                    val = trilinear_sdf_sample(sdf_field, pos)            # interpolate SDF
+                    world_pos = pos * scale                         # convert to world space
+                    cube_corner_positions.append(world_pos)
+                    cube_corner_values.append(val)
+
+                cube_index = 0
+                for i in range(8):
+                    if cube_corner_values[i] < iso_level:  # Use <= for full face capture
+                        cube_index |= (1 << i)
+
+                if EDGE_TABLE[cube_index] == 0:
+                    continue
+
+                edge_vertices = [None] * 12
+                for i in range(12):
+                    if EDGE_TABLE[cube_index] & (1 << i):
+                        a, b = edge_corner_pairs[i]
+                        p1 = cube_corner_positions[a]
+                        p2 = cube_corner_positions[b]
+                        v1 = cube_corner_values[a]
+                        v2 = cube_corner_values[b]
+                        edge_vertices[i] = interpolate_vertex(p1, p2, v1, v2, iso_level)
+
+                tri_indices = TRIANGLE_TABLE[cube_index]
+                for i in range(0, len(tri_indices), 3):
+                    a, b, c = tri_indices[i], tri_indices[i + 1], tri_indices[i + 2] 
+                    if a == -1 or b == -1 or c == -1:
+                        break
+                    va = edge_vertices[a]
+                    vb = edge_vertices[b]
+                    vc = edge_vertices[c]
+
+
+                    if va is None or vb is None or vc is None:
+                        continue
+
+                    vertices.extend([va, vc, vb])
+
+                    for v in (va, vc, vb):
+                        grid_pos = v / scale
+                        normal = compute_normal(sdf_field, grid_pos, delta=0.5)
+                        normals.append(normal)
+
+
+
+
+    vertex_array = np.array(vertices, dtype=np.float32)
+    normal_array = np.array(normals, dtype=np.float32)
+    vertex_count = len(vertex_array)
+    return vertex_array, normal_array, vertex_count
+
+from scipy.ndimage import map_coordinates
+
+def trilinear_sdf_sample(sdf, pos):
+    coords = np.array(pos, dtype=np.float32).reshape(3, 1)
+    return map_coordinates(sdf, coords, order=1, mode='nearest')[0]
+
 def update(dt):
     update_uniforms(dt)
     mouse['dx'] = 0
@@ -611,39 +715,80 @@ def reconstruct_chunk_from_sdf(sdf_field):
     solid_voxels = (sdf_field <= 0).astype(np.int8)
     return solid_voxels
 
-def generate_sdf_field(voxel_chunk):
-    assert voxel_chunk.ndim == 3
+def voxel_to_sdf_cubical(voxel_grid, voxel_size=1.0, upsample=4, smoothing_sigma=0.5, max_distance=None):
+    # Create a higher-res grid
+    grid_shape = np.array(voxel_grid.shape) * upsample
+    hi_res = np.zeros(grid_shape, dtype=bool)
 
-    inside_mask = voxel_chunk.astype(bool)
+    # For each voxel == 1, fill the corresponding high-res cube
+    for index in np.argwhere(voxel_grid):
+        start = index * upsample
+        end = start + upsample
+        hi_res[start[0]:end[0], start[1]:end[1], start[2]:end[2]] = True
 
-    outside_dist = distance_transform_edt(~inside_mask)
+    # Optional smoothing to round edges
+    if smoothing_sigma > 0:
+        hi_res = gaussian_filter(hi_res.astype(np.float32), sigma=smoothing_sigma) > 0.5
 
-    inside_dist = distance_transform_edt(inside_mask)
+    # Compute signed distance field: outside - inside
+    outside = edt(~hi_res)
+    inside = edt(hi_res)
+    sdf = outside - inside
 
-    sdf = outside_dist - inside_dist
+    # Optional distance clamp
+    if max_distance:
+        sdf = np.clip(sdf, -max_distance, max_distance)
 
     return sdf.astype(np.float32)
 
-def generate_voxel_grid(size, radius: int=None, center: int=None):
+def generate_sdf_field(
+    voxel_chunk,
+    voxel_upsample=2.0,         # modest upsample
+    smoothing_sigma=0.8,        # gentle smoothing
+    max_distance=None,
+    iso_threshold=0.5
+):
+    assert voxel_chunk.ndim == 3
+
+    # Step 1: Upsample (improves gradient quality and rounding)
+    if voxel_upsample != 1.0:
+        voxel_data = zoom(voxel_chunk.astype(np.float32), zoom=voxel_upsample, order=1)
+    else:
+        voxel_data = voxel_chunk.astype(np.float32)
+
+    # Step 2: Smooth the binary cube slightly to soften edges
+    if smoothing_sigma > 0:
+        voxel_data = gaussian_filter(voxel_data, sigma=smoothing_sigma)
+
+    # Step 3: Compute binary masks for inside/outside
+    inside_mask = voxel_data > iso_threshold
+    outside_mask = ~inside_mask
+
+    # Step 4: Signed distance field
+    outside = fast_sdf_from_voxels(outside_mask)
+    inside = fast_sdf_from_voxels(inside_mask)
+    sdf = outside - inside  # Positive outside, negative inside
+
+    # Optional clamp
+    if max_distance is not None:
+        sdf = np.clip(sdf, -max_distance, max_distance)
+
+    return sdf.astype(np.float32)
+
+
+def fast_sdf_from_voxels(mask):
+    # mask: 1 inside, 0 outside
+    phi = np.where(mask, -1.0, 1.0)
+    return skfmm.distance(phi)
+
+def generate_voxel_grid(config='cube', size=16):
     grid = np.zeros((size, size, size), dtype=np.int8)
 
-    if radius is None:
-        radius = size / 4
-
-    if center is None:
-        center = (size - 1) / 2.0,  (size - 1) / 2.0, (size - 1) / 2.0
-
-    x, y, z = np.indices((size, size, size))
-    dist_squared = (
-        (x - center[0])**2 +
-        (y - center[1])**2 + 
-        (z - center[2])**2
-    )
-
-    mask = dist_squared <= radius**2
-    grid[mask] = 1
+    if config == 'cube':
+        grid[1, 1, 1] = 1
 
     return grid
 
 if __name__=='__main__':
-    main()
+    mode='cube-march'
+    main(mode)
